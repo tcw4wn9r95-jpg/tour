@@ -6,7 +6,7 @@ A web app for iPhone (add it to your Home Screen) that plans a personal city tou
 - **Planning by chat.** The guide asks for the city (suggested from your location), your focus (food, architecture, history, or a bit of everything), how much time you have (it already knows the current time and weekday), how you get around, and any constraints or special requests. Claude then builds the plan.
 - **Overview tab.** Your guide's opening speech, the day's themes, and a map with your live location. The route goes in the most efficient order: legs under 1 km are walked along real streets (dotted blue), and longer legs use public transport (dashed purple) or car/taxi (orange), whichever you chose.
 - **Today's tour tab.** Starts with a one-minute audio welcome that walks you through the day and picks up what you told the guide. Then a timeline of every stop with photos, start times, and walking or transit directions (opens Apple Maps). Meal breaks sit where they fall in the day, each with top-rated restaurants near that point on the route.
-- **Stop pages.** A photo gallery, a one-minute audio story, and each highlight with its own photo, "look for" tip, and audio clip. Also today's hours, tickets, and a fun fact.
+- **Stop pages.** A photo gallery, a one-minute audio story, and each highlight with its own photo, "look for" tip, and audio clip. Also today's hours, tickets, and a fun fact. Audio is recorded for **major landmarks only**; food stops (restaurants, cafés, bakeries, markets) get a written guide with what to try.
 - **Audio.** Narration is read in clear English over generated background music (a music intro, the voice with the music turned down underneath, and a short outro). It plays like a podcast, including lock-screen controls.
 
 ## Quick start
@@ -38,7 +38,8 @@ The free ElevenLabs plan gives 10,000 credits a month. That's less than one tour
 
 - uses the **Flash v2.5** voice, which costs half a credit per character (about 20 minutes of narration a month);
 - checks your live usage before each recording and caps it at 10,000 credits, even if your account allows more;
-- keeps the last 2,500 credits for the main one-minute stories (today's welcome and each stop), so short highlight clips switch to the iPhone voice first;
+- records audio only for major landmarks, never for food stops;
+- keeps the last 2,500 credits for the main one-minute stories (today's welcome and each landmark), so short highlight clips switch to the iPhone voice first;
 - switches to the iPhone voice, still with background music, once the month's credits are used up, and tells you when they reset;
 - saves every recording on the phone, so replays and offline listening cost nothing. **Download audio for offline** fills the budget with main stories first.
 

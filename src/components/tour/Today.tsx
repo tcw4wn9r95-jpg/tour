@@ -6,7 +6,7 @@ import { Photo } from "@/components/Photo";
 import { ensureRestaurants, ensureTodayIntro, useTourTasks } from "@/lib/client/enrich";
 import { updateTour } from "@/lib/client/store";
 import { formatClock } from "@/lib/geo";
-import { CATEGORY_LABEL } from "@/lib/labels";
+import { CATEGORY_LABEL, hasAudioGuide } from "@/lib/labels";
 import { stopHref, tourHref } from "@/lib/links";
 import type { Stop, Tour } from "@/lib/types";
 import { LegRow } from "./LegRow";
@@ -145,7 +145,11 @@ function StopCard({ tour, stop, index }: { tour: Tour; stop: Stop; index: number
           {stop.whyForYou}
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {stop.details ? (
+          {!stop.details ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-chip px-3 py-1.5 text-sm text-muted">
+              <Loader2 className="size-4 animate-spin" /> {hasAudioGuide(stop) ? "Preparing audio guide" : "Preparing guide"}
+            </span>
+          ) : hasAudioGuide(stop) && stop.details.narration ? (
             <PlayChip
               track={{
                 id: `${tour.id}:${stop.id}`,
@@ -156,11 +160,7 @@ function StopCard({ tour, stop, index }: { tour: Tour; stop: Stop; index: number
                 href,
               }}
             />
-          ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-chip px-3 py-1.5 text-sm text-muted">
-              <Loader2 className="size-4 animate-spin" /> Preparing audio guide
-            </span>
-          )}
+          ) : null}
           <button
             onClick={toggleVisited}
             className={`rounded-full px-3 py-1.5 text-sm font-medium ${stop.visited ? "bg-good/15 text-good" : "bg-chip"}`}

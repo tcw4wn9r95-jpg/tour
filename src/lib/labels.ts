@@ -1,4 +1,4 @@
-import type { Focus, MealKind, StopCategory } from "./types";
+import type { Focus, MealKind, Stop, StopCategory } from "./types";
 
 export const FOCUS_LABEL: Record<Focus, string> = {
   food: "Food",
@@ -43,4 +43,11 @@ export const CATEGORY_LABEL: Record<StopCategory, string> = {
 
 export function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+
+const NO_AUDIO: StopCategory[] = ["food", "market"];
+
+/** Audio stories are recorded for major landmarks only, never for food stops. */
+export function hasAudioGuide(stop: Pick<Stop, "category" | "landmark">): boolean {
+  return !NO_AUDIO.includes(stop.category) && stop.landmark !== false;
 }

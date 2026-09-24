@@ -54,6 +54,11 @@ export const PlanSchema = z.object({
         lat: z.number(),
         lng: z.number(),
         category,
+        landmark: z
+          .boolean()
+          .describe(
+            "true only for a major landmark or sight worth a one-minute audio story; false for food and drink stops (restaurants, cafés, bakeries, markets, tastings), shops and minor stops",
+          ),
         durationMin: z.number().describe("Minutes to spend at the stop"),
         summary: z.string().describe("2 sentences about the place"),
         whyForYou: z.string().describe("1 sentence tying it to the traveler's interests"),
@@ -74,20 +79,17 @@ const narration = z.object({
   mood,
 });
 
-export const StopDetailsSchema = z.object({
+const guideFeature = z.object({
+  title: z.string(),
+  description: z.string().describe("2-4 sentences"),
+  lookFor: z.string().describe("One concrete thing to spot or try in person"),
+  imageSearch: z.string().describe("Search phrase for a Wikimedia Commons photo of this exact feature"),
+});
+
+/** Written guide only: food stops and minor stops get no audio. */
+export const StopGuideSchema = z.object({
   overview: z.array(z.string()).describe("2-3 paragraphs, rich and specific"),
-  narration: narration.describe("Podcast-style audio script for the whole stop, ~150-170 words (about one minute)"),
-  features: z
-    .array(
-      z.object({
-        title: z.string(),
-        description: z.string().describe("2-4 sentences"),
-        lookFor: z.string().describe("One concrete thing to spot in person"),
-        imageSearch: z.string().describe("Search phrase for a Wikimedia Commons photo of this exact feature"),
-        narration: narration.describe("Audio script for this feature, ~50-70 words (about 25 seconds)"),
-      }),
-    )
-    .describe("3-5 interesting features of the place"),
+  features: z.array(guideFeature).describe("3-5 interesting features of the place (for food stops: what to order and why)"),
   practical: z.object({
     hours: z.string(),
     tickets: z.string(),
@@ -95,7 +97,22 @@ export const StopDetailsSchema = z.object({
   }),
   funFact: z.string(),
 });
+export type StopGuideOutput = z.infer<typeof StopGuideSchema>;
+
+/** Landmarks: the written guide plus podcast-style narration. */
+export const StopDetailsSchema = StopGuideSchema.extend({
+  narration: narration.describe("Podcast-style audio script for the whole stop, ~150-170 words (about one minute)"),
+  features: z
+    .array(guideFeature.extend({ narration: narration.describe("Audio script for this feature, ~50-70 words (about 25 seconds)") }))
+    .describe("3-5 interesting features of the place"),
+});
 export type StopDetailsOutput = z.infer<typeof StopDetailsSchema>;
+
+/** What a stop's guide can contain; narration only for landmarks. */
+export type StopContent = Omit<StopGuideOutput, "features"> & {
+  narration?: StopDetailsOutput["narration"];
+  features: (StopGuideOutput["features"][number] & { narration?: StopDetailsOutput["narration"] })[];
+};
 
 export const TodayIntroSchema = narration;
 

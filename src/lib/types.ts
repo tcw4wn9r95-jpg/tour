@@ -62,13 +62,15 @@ export interface Feature {
   description: string;
   lookFor: string;
   imageSearch: string;
-  narration: Narration;
+  /** Only on landmarks. */
+  narration?: Narration;
   photo?: Photo;
 }
 
 export interface StopDetails {
   overview: string[];
-  narration: Narration;
+  /** Only on landmarks. */
+  narration?: Narration;
   features: Feature[];
   practical: { hours: string; tickets: string; tip: string };
   funFact: string;
@@ -81,6 +83,8 @@ export interface Stop {
   lat: number;
   lng: number;
   category: StopCategory;
+  /** A major landmark gets audio; food and minor stops don't. Missing on older tours. */
+  landmark?: boolean;
   wikipediaTitle: string | null;
   summary: string;
   whyForYou: string;

@@ -1,6 +1,6 @@
 // Sample Lisbon content used when no ANTHROPIC_API_KEY is configured, so the
 // app can be explored end to end (map, audio, restaurants) before setup.
-import type { PlanOutput, StopDetailsOutput } from "./schemas";
+import type { PlanOutput, StopDetailsOutput, StopGuideOutput } from "./schemas";
 import type { MealRecommendation, Narration } from "./types";
 
 export const DEMO_PLAN: PlanOutput = {
@@ -40,6 +40,7 @@ export const DEMO_PLAN: PlanOutput = {
       lat: 38.6979,
       lng: -9.2065,
       category: "architecture",
+      landmark: true,
       durationMin: 75,
       summary: "A UNESCO-listed masterpiece of Manueline architecture, funded by the spice trade and begun in 1501. It holds the tomb of Vasco da Gama.",
       whyForYou: "It is the purest expression of how the Age of Discovery was turned into architecture.",
@@ -52,6 +53,7 @@ export const DEMO_PLAN: PlanOutput = {
       lat: 38.6975,
       lng: -9.2032,
       category: "food",
+      landmark: false,
       durationMin: 30,
       summary: "The bakery that has made pastéis de nata from the monastery's secret recipe since 1837. Sit inside in the blue-tiled rooms to skip the takeaway queue.",
       whyForYou: "A delicious link between the monks next door and Lisbon's sweet tooth.",
@@ -64,6 +66,7 @@ export const DEMO_PLAN: PlanOutput = {
       lat: 38.6936,
       lng: -9.2057,
       category: "history",
+      landmark: true,
       durationMin: 30,
       summary: "A 52-metre monument shaped like a caravel's prow, lined with 33 figures of the Age of Discovery led by Henry the Navigator.",
       whyForYou: "It puts faces on the explorers whose voyages paid for everything you see in Belém.",
@@ -76,6 +79,7 @@ export const DEMO_PLAN: PlanOutput = {
       lat: 38.6916,
       lng: -9.2160,
       category: "architecture",
+      landmark: true,
       durationMin: 40,
       summary: "A fortified tower built in the 1510s to guard the mouth of the Tagus, decorated with ropes, armillary spheres and a famous stone rhinoceros.",
       whyForYou: "Lisbon's icon and the last sight of home for sailors heading out to sea.",
@@ -88,6 +92,7 @@ export const DEMO_PLAN: PlanOutput = {
       lat: 38.7076,
       lng: -9.1365,
       category: "history",
+      landmark: true,
       durationMin: 30,
       summary: "The grand riverside square where the royal palace stood until the 1755 earthquake, rebuilt as a symbol of Enlightenment Lisbon.",
       whyForYou: "It shows how Lisbon rose again after the catastrophe that ended its golden age.",
@@ -100,6 +105,7 @@ export const DEMO_PLAN: PlanOutput = {
       lat: 38.7099,
       lng: -9.1335,
       category: "religious",
+      landmark: true,
       durationMin: 30,
       summary: "Lisbon's fortress-like Romanesque cathedral, founded in 1147 on the site of a mosque after the Christian reconquest.",
       whyForYou: "It is the oldest layer of the city's story — before any ship set sail.",
@@ -112,6 +118,7 @@ export const DEMO_PLAN: PlanOutput = {
       lat: 38.7118,
       lng: -9.1301,
       category: "viewpoint",
+      landmark: true,
       durationMin: 30,
       summary: "A bougainvillea-covered terrace with azulejo panels and sweeping views over Alfama's rooftops to the river.",
       whyForYou: "The perfect place to end the day, looking out at the river the explorers sailed.",
@@ -121,9 +128,7 @@ export const DEMO_PLAN: PlanOutput = {
   ],
 };
 
-type Details = Omit<StopDetailsOutput, "narration" | "features"> & {
-  features: Omit<StopDetailsOutput["features"][number], "narration">[];
-};
+type Details = StopGuideOutput;
 
 const DETAILS: Record<string, Details> = {
   "Jerónimos Monastery": {

@@ -46,7 +46,7 @@ http
     }
     const json = JSON.parse(body || "{}");
     const system = typeof json.system === "string" ? json.system : JSON.stringify(json.system);
-    log.push({ url: req.url, beta: req.headers["anthropic-beta"], model: json.model, thinking: json.thinking, output_config: json.output_config && { effort: json.output_config.effort, format: json.output_config.format?.type }, fallbacks: json.fallbacks, tools: json.tools?.map((t: { name: string; type?: string }) => t.type ?? t.name), stream: json.stream, system: system.slice(0, 60) });
+    log.push({ url: req.url, beta: req.headers["anthropic-beta"], model: json.model, thinking: json.thinking, output_config: json.output_config && { effort: json.output_config.effort, format: json.output_config.format?.type }, fallbacks: json.fallbacks, tools: json.tools?.map((t: { name: string; type?: string }) => t.type ?? t.name), stream: json.stream, wantsNarration: JSON.stringify(json.output_config?.format ?? {}).includes('"narration"'), stopName: /Stop: (.*?) \(/.exec(json.messages?.[0]?.content ?? "")?.[1], system: system.slice(0, 60) });
 
       // The first request carrying `fallbacks` is rejected to exercise the retry-without-fallbacks path.
     if (json.fallbacks && !rejectedFallbacks) {

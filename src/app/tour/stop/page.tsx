@@ -8,7 +8,7 @@ import { Photo } from "@/components/Photo";
 import { ensureStopDetails, useTourTasks } from "@/lib/client/enrich";
 import { updateTour, useTour } from "@/lib/client/store";
 import { appleDirectionsUrl, formatClock, formatDistance, formatDuration, MODE_LABEL } from "@/lib/geo";
-import { CATEGORY_LABEL } from "@/lib/labels";
+import { CATEGORY_LABEL, hasAudioGuide } from "@/lib/labels";
 import { stopHref, tourHref } from "@/lib/links";
 import type { Photo as PhotoT } from "@/lib/types";
 
@@ -60,6 +60,9 @@ function StopScreen({ id, stopId }: { id: string; stopId: string }) {
   }
 
   const d = stop.details;
+  // Audio is recorded for major landmarks only, never for food stops.
+  const audio = hasAudioGuide(stop);
+  const isFood = stop.category === "food" || stop.category === "market";
   const failed = tasks.failed.includes(`stop:${stop.id}`);
   const legIn = tour.legs.find((l) => l.toId === stop.id);
   const from = legIn ? (legIn.fromId === "start" ? tour.start : tour.stops.find((s) => s.id === legIn.fromId)) : undefined;
@@ -138,11 +141,13 @@ function StopScreen({ id, stopId }: { id: string; stopId: string }) {
         </div>
       ) : (
         <>
-          <EpisodeCard
-            className="mx-4 mt-5"
-            kicker={`Audio guide · stop ${index + 1}`}
-            track={{ ...baseTrack, id: `${tour.id}:${stop.id}`, title: d.narration.title || stop.name, narration: d.narration }}
-          />
+          {audio && d.narration && (
+            <EpisodeCard
+              className="mx-4 mt-5"
+              kicker={`Audio guide · stop ${index + 1}`}
+              track={{ ...baseTrack, id: `${tour.id}:${stop.id}`, title: d.narration.title || stop.name, narration: d.narration }}
+            />
+          )}
 
           <section className="mt-6 space-y-3 px-5 text-[17px] leading-relaxed">
             {d.overview.map((p, i) => (
@@ -155,7 +160,7 @@ function StopScreen({ id, stopId }: { id: string; stopId: string }) {
           </section>
 
           <section className="mt-7 px-4">
-            <h2 className="px-1 font-display text-[22px] font-bold">Highlights</h2>
+            <h2 className="px-1 font-display text-[22px] font-bold">{isFood ? "What to try" : "Highlights"}</h2>
             <div className="mt-3 space-y-4">
               {d.features.map((f) => (
                 <article key={f.id} className="overflow-hidden rounded-3xl bg-card shadow-sm">
@@ -171,12 +176,14 @@ function StopScreen({ id, stopId }: { id: string; stopId: string }) {
                     <p className="mt-2 flex gap-2 rounded-xl bg-card-2 p-3 text-sm">
                       <Eye className="mt-0.5 size-4 shrink-0 text-accent" />
                       <span>
-                        <b>Look for:</b> {f.lookFor}
+                        <b>{isFood ? "Try:" : "Look for:"}</b> {f.lookFor}
                       </span>
                     </p>
-                    <div className="mt-3">
-                      <PlayChip track={{ ...baseTrack, id: `${tour.id}:${f.id}`, title: f.title, narration: f.narration, priority: "extra" }} />
-                    </div>
+                    {audio && f.narration && (
+                      <div className="mt-3">
+                        <PlayChip track={{ ...baseTrack, id: `${tour.id}:${f.id}`, title: f.title, narration: f.narration, priority: "extra" }} />
+                      </div>
+                    )}
                   </div>
                 </article>
               ))}

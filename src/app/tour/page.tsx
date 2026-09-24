@@ -9,6 +9,7 @@ import { prefetchVoices } from "@/lib/audio/player";
 import { ensureRestaurants, ensureTourContent, useTourTasks } from "@/lib/client/enrich";
 import { deleteTour, useTour } from "@/lib/client/store";
 import type { VoicePriority } from "@/lib/guide/voice-budget";
+import { hasAudioGuide } from "@/lib/labels";
 import type { Tour } from "@/lib/types";
 
 type Tab = "overview" | "today";
@@ -160,9 +161,9 @@ function collectClips(tour: Tour): { script: string; priority: VoicePriority }[]
   const out: { script: string; priority: VoicePriority }[] = [];
   if (tour.todayIntro) out.push({ script: tour.todayIntro.script, priority: "main" });
   for (const s of tour.stops) {
-    if (!s.details) continue;
+    if (!s.details?.narration || !hasAudioGuide(s)) continue;
     out.push({ script: s.details.narration.script, priority: "main" });
-    out.push(...s.details.features.map((f) => ({ script: f.narration.script, priority: "extra" as const })));
+    for (const f of s.details.features) if (f.narration) out.push({ script: f.narration.script, priority: "extra" });
   }
   return out;
 }

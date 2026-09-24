@@ -6,7 +6,8 @@
 // they aren't rate-limited as shared datacenter traffic.
 import { centroid, formatClock, formatDistance, formatDuration, haversine, MODE_LABEL } from "../geo.ts";
 import { estimateLegs, longLegEstimate, orderStops, parseStartTime, roundUpTo5, scheduleTour, walkMinutes, WALK_LIMIT_M } from "../route.ts";
-import type { StopDetailsOutput } from "../schemas";
+import { hasAudioGuide } from "../labels";
+import type { StopContent } from "../schemas";
 import type { LatLng, Leg, LongLegMode, Photo, RawPlan, Stop, StopDetails, Tour, TourRequest } from "../types";
 import { fetchRestaurants, fetchStopDetails, fetchTodayIntro } from "./api";
 import { useEffect, useState } from "react";
@@ -391,7 +392,8 @@ export function ensureStopDetails(tourId: string, stopId: string): Promise<void>
     const tour = await getTour(tourId);
     const stop = tour?.stops.find((s) => s.id === stopId);
     if (!tour || !stop || stop.details) return;
-    const raw: StopDetailsOutput = await fetchStopDetails({
+    const raw: StopContent = await fetchStopDetails({
+      audio: hasAudioGuide(stop),
       city: tour.city,
       country: tour.country,
       focus: tour.request.focus,

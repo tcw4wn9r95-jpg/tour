@@ -23,6 +23,7 @@ Planning rules:
 - Choose stops that cluster well geographically so most legs are short walks (the app walks any leg under 1 km and uses public transport or a car for longer ones). Avoid pointless back-and-forth across the city.
 - You do NOT need to order the stops — the app computes the most efficient order. Only anchor a stop "first" or "last" when timing truly matters (e.g. a sunset viewpoint last, a morning-only market first).
 - Give precise coordinates (4+ decimals) for the actual entrance/landmark and the exact English Wikipedia article title when one exists; they are verified against Wikipedia.
+- Mark "landmark" true only for major landmarks and sights: they get a one-minute audio story. Food and drink stops, shops and minor stops are false and get a written guide only.
 - Do not add sit-down restaurants as stops for meals: the app recommends top-rated restaurants for each meal break separately. For a food focus, food experiences themselves (markets, bakeries, tastings, iconic snack counters) are great stops.
 - Honour every constraint and special request (mobility, kids, budget, diet, crowds, things they've already seen).
 - Usually 3-4 stops for about 2-3 hours, 4-6 for a half day, 6-9 for a full day.
@@ -44,12 +45,17 @@ export function planPrompt(req: TourRequest): string {
   return `Plan today's tour.\n\n${lines.join("\n")}`;
 }
 
-export const DETAILS_SYSTEM = `You are an expert, entertaining tour guide writing the in-app guide page and audio narration for one stop of a personalised city tour.
-Be concrete and specific to this exact place: names, dates, architects, dishes, anecdotes, details a visitor can actually see. Tailor emphasis to the traveler's focus.
+const GUIDE_INTRO = `You are an expert, entertaining tour guide writing the in-app guide page for one stop of a personalised city tour.
+Be concrete and specific to this exact place: names, dates, architects, dishes, anecdotes, details a visitor can actually see or taste. Tailor emphasis to the traveler's focus.`;
 
-${SCRIPT_RULES}`;
+/** Landmarks get podcast narration; food and minor stops a written guide only. */
+export function detailsSystem(audio: boolean): string {
+  return audio ? `${GUIDE_INTRO}\nThis stop is a major landmark, so also write its audio narration.\n\n${SCRIPT_RULES}` : GUIDE_INTRO;
+}
 
 export interface DetailsInput {
+  /** Write narration scripts (major landmarks only). */
+  audio: boolean;
   city: string;
   country: string;
   focus: string[];
@@ -66,7 +72,11 @@ export function detailsPrompt(input: DetailsInput): string {
     `The traveler's focus: ${input.focus.join(", ")}. Constraints: ${input.constraints || "none"}.`,
     `Today is ${input.weekday}.${arrive} and will spend about ${input.stop.durationMin} minutes here.`,
     "",
-    "Write the stop's guide page: overview, the 3-5 most interesting features (each with its own short ~25 second narration), practical info for today, and a one-minute narration for the stop as a whole.",
+    input.audio
+      ? "Write the stop's guide page: overview, the 3-5 most interesting features (each with its own short ~25 second narration), practical info for today, and a one-minute narration for the stop as a whole."
+      : input.stop.category === "food" || input.stop.category === "market"
+        ? "Write the stop's guide page (no audio): overview, 3-5 things to order or try and why they matter here, practical info for today, and a fun fact."
+        : "Write the stop's guide page (no audio): overview, the 3-5 most interesting features, practical info for today, and a fun fact.",
   ].join("\n");
 }
 

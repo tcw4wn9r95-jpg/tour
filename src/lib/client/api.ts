@@ -6,7 +6,7 @@ import type { DetailsInput, TodayInput } from "../guide/prompts";
 import type { RestaurantsRequest } from "../guide/restaurants";
 import type { PlanProgress } from "../guide/service";
 import type { VoicePriority, VoiceUsage } from "../guide/voice-budget";
-import type { StopDetailsOutput } from "../schemas";
+import type { StopContent } from "../schemas";
 import type { AppConfig, MealRecommendation, Narration, RawPlan, TourRequest } from "../types";
 
 export const IS_STATIC = process.env.NEXT_PUBLIC_STATIC_EXPORT === "1";
@@ -153,7 +153,7 @@ export async function requestPlan(
   throw new ApiError("The connection closed before the plan was ready. Please try again.", 500);
 }
 
-export const fetchStopDetails = (body: DetailsInput, signal?: AbortSignal): Promise<StopDetailsOutput> =>
+export const fetchStopDetails = (body: DetailsInput, signal?: AbortSignal): Promise<StopContent> =>
   IS_STATIC ? onDevice((env, guide) => guide.stopDetails(env, body, signal)) : post("/api/stop-details", body, signal);
 
 export const fetchTodayIntro = (body: TodayInput, signal?: AbortSignal): Promise<Narration> =>

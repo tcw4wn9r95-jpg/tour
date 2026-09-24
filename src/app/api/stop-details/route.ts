@@ -9,6 +9,7 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 const Input = z.object({
+  audio: z.boolean().default(true),
   city: z.string().max(120),
   country: z.string().max(120),
   focus: z.array(z.string().max(40)).max(4),

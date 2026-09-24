@@ -2,11 +2,11 @@
 // these with server keys; the GitHub Pages build calls them on the phone.
 import Anthropic from "@anthropic-ai/sdk";
 import { DEMO_PLAN, demoDetails, demoRestaurants, demoTodayIntro } from "../demo";
-import { PlanSchema, StopDetailsSchema, TodayIntroSchema, type PlanOutput, type StopDetailsOutput } from "../schemas";
+import { PlanSchema, StopDetailsSchema, StopGuideSchema, TodayIntroSchema, type PlanOutput, type StopContent } from "../schemas";
 import type { AppConfig, MealRecommendation, Narration, TourRequest } from "../types";
 import { generateStructured, GuideError } from "./claude";
 import { ttsProvider, type GuideEnv } from "./env";
-import { DETAILS_SYSTEM, detailsPrompt, PLAN_SYSTEM, planPrompt, TODAY_SYSTEM, todayPrompt, type DetailsInput, type TodayInput } from "./prompts";
+import { detailsPrompt, detailsSystem, PLAN_SYSTEM, planPrompt, TODAY_SYSTEM, todayPrompt, type DetailsInput, type TodayInput } from "./prompts";
 import { googleRestaurants, knowledgeRestaurants, webRestaurants, type RestaurantsRequest } from "./restaurants";
 import { synthesize } from "./tts";
 import { readUsage, type VoicePriority, type VoiceUsage } from "./voice-budget";
@@ -64,9 +64,14 @@ export async function planTour(
   return { plan, demo: false };
 }
 
-export async function stopDetails(env: GuideEnv, input: DetailsInput, signal?: AbortSignal): Promise<StopDetailsOutput> {
-  if (!env.claude) return demoDetails(input.stop.name);
-  return generateStructured(env, StopDetailsSchema, { system: DETAILS_SYSTEM, prompt: detailsPrompt(input), signal });
+/** A stop's guide page; narration scripts only when `input.audio` (major landmarks). */
+export async function stopDetails(env: GuideEnv, input: DetailsInput, signal?: AbortSignal): Promise<StopContent> {
+  if (!env.claude) {
+    const demo = demoDetails(input.stop.name);
+    return input.audio ? demo : { ...demo, narration: undefined, features: demo.features.map((f) => ({ ...f, narration: undefined })) };
+  }
+  const schema = input.audio ? StopDetailsSchema : StopGuideSchema;
+  return generateStructured(env, schema, { system: detailsSystem(input.audio), prompt: detailsPrompt(input), signal });
 }
 
 export async function todayIntro(env: GuideEnv, input: TodayInput, signal?: AbortSignal): Promise<Narration> {
