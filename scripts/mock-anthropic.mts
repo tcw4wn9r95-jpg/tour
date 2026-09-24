@@ -63,6 +63,38 @@ http
     if (system.includes("one-minute audio welcome")) {
       return sse(res, textStream(model, JSON.stringify({ title: "Your day in Lisbon", mood: "warm", script: "Welcome to Lisbon. " + "Today we walk and taste. ".repeat(10) })));
     }
+    if (system.includes("curious local")) {
+      const stops = [...json.messages[0].content.matchAll(/- (s\d+): (.*?) \((-?[\d.]+), (-?[\d.]+)\)/g)];
+      const found = ["https://www.reddit.com/r/lisboa/comments/abc123/hidden_details/", "https://www.atlasobscura.com/places/example-lisbon"];
+      const item = (i: number, onTheWay: boolean, url: string) => ({
+        title: `Quirk ${i + 1} near ${stops[i % stops.length][2]}`,
+        story: "Locals on the forum swear by it.",
+        lookFor: "The little carved face above the door.",
+        where: "Just around the corner",
+        kind: i % 2 ? "legend" : "hidden-detail",
+        nearStopId: stops[i % stops.length][1],
+        onTheWay,
+        lat: Number(stops[i % stops.length][3]) + 0.001,
+        lng: Number(stops[i % stops.length][4]) + 0.001,
+        sourceName: url.includes("reddit") ? "r/lisboa" : "Atlas Obscura",
+        sourceUrl: url,
+      });
+      const input = JSON.stringify({
+        items: [item(0, true, found[0]), item(1, false, found[1]), item(2, true, found[0] + "#comment"), item(3, true, "https://made-up.example/never-searched")],
+      });
+      return sse(res, [
+        start(model),
+        ["content_block_start", { type: "content_block_start", index: 0, content_block: { type: "server_tool_use", id: "srvtoolu_1", name: "web_search", input: {} } }],
+        ["content_block_delta", { type: "content_block_delta", index: 0, delta: { type: "input_json_delta", partial_json: JSON.stringify({ query: "reddit lisbon hidden quirks" }) } }],
+        ["content_block_stop", { type: "content_block_stop", index: 0 }],
+        ["content_block_start", { type: "content_block_start", index: 1, content_block: { type: "web_search_tool_result", tool_use_id: "srvtoolu_1", content: found.map((url) => ({ type: "web_search_result", url, title: "Forum thread", encrypted_content: "x", page_age: null })) } }],
+        ["content_block_stop", { type: "content_block_stop", index: 1 }],
+        ["content_block_start", { type: "content_block_start", index: 2, content_block: { type: "tool_use", id: "toolu_2", name: "submit_curiosities", input: {} } }],
+        ...(input.match(/[\s\S]{1,50}/g) ?? []).map((c) => ["content_block_delta", { type: "content_block_delta", index: 2, delta: { type: "input_json_delta", partial_json: c } }] as [string, unknown]),
+        ["content_block_stop", { type: "content_block_stop", index: 2 }],
+        ...end("tool_use"),
+      ]);
+    }
     if (system.includes("savvy local friend")) {
       const slots = [...json.messages[0].content.matchAll(/slotId "([^"]+)": (\w+)/g)].map((m: RegExpMatchArray) => ({ slotId: m[1], kind: m[2] }));
       const picks = { slots: demoRestaurants(slots).map((r) => ({ slotId: r.slotId, restaurants: r.restaurants.map(({ distanceM, mapsUrl, ...rest }) => rest) })) };

@@ -1,7 +1,7 @@
 // Sample Lisbon content used when no ANTHROPIC_API_KEY is configured, so the
 // app can be explored end to end (map, audio, restaurants) before setup.
 import type { PlanOutput, StopDetailsOutput, StopGuideOutput } from "./schemas";
-import type { MealRecommendation, Narration } from "./types";
+import type { Curiosity, MealRecommendation, Narration } from "./types";
 
 export const DEMO_PLAN: PlanOutput = {
   title: "Lisbon: Explorers, Tiles & Custard Tarts",
@@ -265,4 +265,63 @@ export function demoRestaurants(slots: { slotId: string; kind: MealRecommendatio
       { name: "Enoteca de Belém", cuisine: "Wine bar / Portuguese", rating: 4.6, reviewCount: 1500, ratingSource: "Tripadvisor", priceLevel: "$$", address: "Travessa do Marta Pinto 10, Belém", lat: 38.6972, lng: -9.2007, distanceM: 300, why: "Portuguese wines by the glass with slow-cooked pork cheeks.", mapsUrl: "https://maps.apple.com/?q=Enoteca+de+Belem" },
     ],
   }));
+}
+
+/** Sample "off the tourist script" finds for the Lisbon demo (stop ids follow DEMO_PLAN order). */
+export function demoCuriosities(): Curiosity[] {
+  const sample = { sourceName: "Sample (demo mode)", sourceUrl: null };
+  return [
+    {
+      id: "c1",
+      title: "The bridge that sings",
+      story: "The 25 de Abril Bridge has a steel-grid road deck, so traffic makes a constant hum that carries across the river on quiet days.",
+      lookFor: "Stop by the water and listen for the low drone from the bridge upstream.",
+      where: "Riverside promenade, on the way from Belém Tower",
+      kind: "quirk",
+      nearStopId: "s4",
+      onTheWay: true,
+      lat: 38.6928,
+      lng: -9.2095,
+      ...sample,
+    },
+    {
+      id: "c2",
+      title: "Pessoa's table",
+      story: "Under the arcades sits Martinho da Arcada, trading since 1782. The poet Fernando Pessoa wrote here, and his usual table is still kept for him.",
+      lookFor: "The corner table with his photo, a cup and his glasses.",
+      where: "North-east corner of the square, under the arcades",
+      kind: "hidden-detail",
+      nearStopId: "s5",
+      onTheWay: false,
+      lat: 38.7082,
+      lng: -9.1357,
+      ...sample,
+    },
+    {
+      id: "c3",
+      title: "Ravens on the pavement",
+      story: "Lisbon's emblem is a ship guarded by two ravens, from the legend that ravens escorted St Vincent's body to the city. It hides everywhere once you notice it.",
+      lookFor: "The ship-and-ravens emblem set into the black-and-white pavement and on lampposts.",
+      where: "Streets between Praça do Comércio and the cathedral",
+      kind: "legend",
+      nearStopId: "s5",
+      onTheWay: true,
+      lat: null,
+      lng: null,
+      ...sample,
+    },
+    {
+      id: "c4",
+      title: "Handshake alley",
+      story: "Beco do Carneiro is one of Alfama's narrowest lanes; locals joke that neighbours can shake hands between facing windows.",
+      lookFor: "Stretch out your arms: you can almost touch both walls.",
+      where: "A short walk down the stairs from the viewpoint",
+      kind: "local-habit",
+      nearStopId: "s7",
+      onTheWay: false,
+      lat: 38.7122,
+      lng: -9.1284,
+      ...sample,
+    },
+  ];
 }

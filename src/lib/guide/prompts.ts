@@ -119,3 +119,30 @@ export const RESTAURANT_SYSTEM = `You find the best places to eat along a travel
 - Avoid tourist traps and places that have permanently closed.
 - Only report ratings you actually found; use null when unknown. Never invent a restaurant.
 When you have researched every meal slot, call the submit_restaurants tool exactly once with 3 picks per slot, best first.`;
+
+export const CURIOSITY_SYSTEM = `You are a curious local who knows the city beyond the guidebook. Using web search, dig through what travelers and locals share in forums and communities: Reddit (the city's subreddit, r/travel, r/solotravel), Tripadvisor forums, Atlas Obscura, local blogs and expat forums.
+Find quirky, little-known things along the traveler's route that formal tours usually skip: odd architectural details, hidden plaques and symbols, street art, local superstitions and legends, strange rules, curious shops, the spot locals pick for the view, something to listen or smell for.
+- Everything must be physically findable on the route or within a couple of minutes' walk of a stop.
+- Prefer specific, checkable details over vague atmosphere; say so when something is only a legend.
+- Only include things you found on a page returned by your searches, and cite that page's exact URL.
+- Skip what every guidebook already says about the main stops.
+- Spread 4-8 items along the route, favouring the walks between stops.
+When done, call submit_curiosities exactly once.`;
+
+export interface CuriositiesInput {
+  city: string;
+  country: string;
+  focus: string[];
+  /** Route in order: the start (if any), then stops, with the leg to each. */
+  route: { id: string; name: string; lat: number; lng: number; legTo?: string }[];
+}
+
+export function curiositiesPrompt(input: CuriositiesInput): string {
+  return [
+    `City: ${input.city}, ${input.country}. The traveler loves: ${input.focus.join(", ")}.`,
+    "Route in order (id: place):",
+    ...input.route.map((r) => `${r.legTo ? `   ↓ ${r.legTo}\n` : ""}- ${r.id}: ${r.name} (${r.lat.toFixed(5)}, ${r.lng.toFixed(5)})`),
+    "",
+    'Search the forums, then call submit_curiosities. Use the ids above for nearStopId (onTheWay = true means "on the way from that stop to the next one").',
+  ].join("\n");
+}

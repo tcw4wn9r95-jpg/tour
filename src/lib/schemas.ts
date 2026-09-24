@@ -138,3 +138,22 @@ export const RestaurantPickSchema = z.object({
   ),
 });
 export type RestaurantPickOutput = z.infer<typeof RestaurantPickSchema>;
+
+export const CuriosityPickSchema = z.object({
+  items: z.array(
+    z.object({
+      title: z.string().describe("Short, intriguing title"),
+      story: z.string().describe("2-3 sentences: what it is and why it's fun or surprising"),
+      lookFor: z.string().describe("Exactly what to look, listen or smell for on the spot"),
+      where: z.string().describe("Short directions a walker can follow, e.g. 'left wall of the arcade, just past the café'"),
+      kind: z.enum(["quirk", "legend", "hidden-detail", "local-habit", "street-art", "viewpoint"]).catch("quirk"),
+      nearStopId: z.string().describe('Stop id it is at, or the stop you have just left when onTheWay ("start" = the starting point)'),
+      onTheWay: z.boolean().describe("true if it's on the way between stops rather than at the stop itself"),
+      lat: z.number().nullable(),
+      lng: z.number().nullable(),
+      sourceName: z.string().describe("Where travelers mention it, e.g. 'r/lisbon', 'Tripadvisor forum', 'Atlas Obscura'"),
+      sourceUrl: z.string().describe("URL of the page you found it on, exactly as returned by web search"),
+    }),
+  ),
+});
+export type CuriosityPickOutput = z.infer<typeof CuriosityPickSchema>;

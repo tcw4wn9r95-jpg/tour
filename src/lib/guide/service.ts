@@ -1,12 +1,13 @@
 // The guide's features, independent of where they run: the API routes call
 // these with server keys; the GitHub Pages build calls them on the phone.
 import Anthropic from "@anthropic-ai/sdk";
-import { DEMO_PLAN, demoDetails, demoRestaurants, demoTodayIntro } from "../demo";
+import { DEMO_PLAN, demoCuriosities, demoDetails, demoRestaurants, demoTodayIntro } from "../demo";
 import { PlanSchema, StopDetailsSchema, StopGuideSchema, TodayIntroSchema, type PlanOutput, type StopContent } from "../schemas";
-import type { AppConfig, MealRecommendation, Narration, TourRequest } from "../types";
+import type { AppConfig, Curiosity, MealRecommendation, Narration, TourRequest } from "../types";
 import { generateStructured, GuideError } from "./claude";
+import { forumCuriosities } from "./curiosities";
 import { ttsProvider, type GuideEnv } from "./env";
-import { detailsPrompt, detailsSystem, PLAN_SYSTEM, planPrompt, TODAY_SYSTEM, todayPrompt, type DetailsInput, type TodayInput } from "./prompts";
+import { type CuriositiesInput, detailsPrompt, detailsSystem, PLAN_SYSTEM, planPrompt, TODAY_SYSTEM, todayPrompt, type DetailsInput, type TodayInput } from "./prompts";
 import { googleRestaurants, knowledgeRestaurants, webRestaurants, type RestaurantsRequest } from "./restaurants";
 import { synthesize } from "./tts";
 import { readUsage, type VoicePriority, type VoiceUsage } from "./voice-budget";
@@ -98,6 +99,21 @@ export async function findRestaurants(env: GuideEnv, input: RestaurantsRequest):
     if (!(err instanceof Anthropic.BadRequestError || err instanceof Anthropic.PermissionDeniedError)) throw err;
     console.warn("Web search unavailable, using Claude's own knowledge", err.message);
     return knowledgeRestaurants(env, input);
+  }
+}
+
+/** Quirky, overlooked things along the route found in travelers' forums (none if web search is unavailable). */
+export async function findCuriosities(env: GuideEnv, input: CuriositiesInput): Promise<Curiosity[]> {
+  if (!env.claude) return demoCuriosities();
+  try {
+    return await forumCuriosities(env, input);
+  } catch (err) {
+    // Web search not enabled for this organization: skip rather than invent sources.
+    if (err instanceof Anthropic.BadRequestError || err instanceof Anthropic.PermissionDeniedError) {
+      console.warn("Web search unavailable; no forum curiosities", err.message);
+      return [];
+    }
+    throw err;
   }
 }
 

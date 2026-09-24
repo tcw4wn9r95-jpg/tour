@@ -3,9 +3,10 @@ import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { haversine } from "../geo.ts";
 import { RestaurantPickSchema } from "../schemas";
 import type { MealKind, MealRecommendation, Restaurant } from "../types";
-import { generateStructured, GuideError, withFallbacks } from "./claude";
+import { generateStructured } from "./claude";
 import type { GuideEnv } from "./env";
 import { RESTAURANT_SYSTEM } from "./prompts";
+import { researchWithWebSearch } from "./research";
 
 export interface MealQuery {
   slotId: string;
@@ -175,64 +176,23 @@ const slotLines = (req: RestaurantsRequest) =>
 const pickFormat = betaZodOutputFormat(RestaurantPickSchema);
 
 export async function webRestaurants(env: GuideEnv, req: RestaurantsRequest): Promise<MealRecommendation[]> {
-  const submitTool: Anthropic.Beta.Messages.BetaTool = {
-    name: "submit_restaurants",
-    description: "Submit the final restaurant picks for every meal slot. Call once, after researching.",
-    strict: true,
-    input_schema: pickFormat.schema as Anthropic.Beta.Messages.BetaTool.InputSchema,
-  };
-  const messages: Anthropic.Beta.Messages.BetaMessageParam[] = [
-    {
-      role: "user",
-      content: [
-        `City: ${req.city}, ${req.country}.`,
-        `Dietary / budget constraints: ${req.constraints || "none"}.`,
-        "Meal slots along the route:",
-        ...slotLines(req),
-        "",
-        `Find ${PICKS_PER_SLOT} top-rated places for each slot, then call submit_restaurants.`,
-      ].join("\n"),
-    },
-  ];
-
-  for (let turn = 0; turn < 6; turn++) {
-    const message = await withFallbacks(
-      env,
-      {
-        model: env.model,
-        max_tokens: 16000,
-        thinking: { type: "adaptive" },
-        output_config: { effort: env.effort },
-        system: RESTAURANT_SYSTEM,
-        tools: [
-          { type: "web_search_20260209", name: "web_search", max_uses: 8, user_location: { type: "approximate", city: req.city, timezone: req.timeZone } },
-          submitTool,
-        ],
-        messages,
-      },
-      (client, p) => client.beta.messages.stream(p).finalMessage(),
-    );
-
-    if (message.stop_reason === "refusal") throw new GuideError("Claude couldn't research restaurants for this route.", 422);
-
-    const call = message.content.find(
-      (b): b is Anthropic.Beta.Messages.BetaToolUseBlock => b.type === "tool_use" && b.name === "submit_restaurants",
-    );
-    if (call) {
-      const parsed = RestaurantPickSchema.safeParse(call.input);
-      if (parsed.success) return toRecommendations(req, parsed.data, "web");
-      messages.push({ role: "assistant", content: message.content });
-      messages.push({
-        role: "user",
-        content: [{ type: "tool_result", tool_use_id: call.id, is_error: true, content: "Input did not match the schema; please resubmit." }],
-      });
-      continue;
-    }
-    messages.push({ role: "assistant", content: message.content });
-    if (message.stop_reason === "pause_turn") continue; // long web research; let it resume
-    messages.push({ role: "user", content: "Please call submit_restaurants now with your picks." });
-  }
-  throw new GuideError("Couldn't finish the restaurant research. Try again in a moment.");
+  const { data } = await researchWithWebSearch(env, {
+    system: RESTAURANT_SYSTEM,
+    prompt: [
+      `City: ${req.city}, ${req.country}.`,
+      `Dietary / budget constraints: ${req.constraints || "none"}.`,
+      "Meal slots along the route:",
+      ...slotLines(req),
+      "",
+      `Find ${PICKS_PER_SLOT} top-rated places for each slot, then call submit_restaurants.`,
+    ].join("\n"),
+    tool: { name: "submit_restaurants", description: "Submit the final restaurant picks for every meal slot. Call once, after researching." },
+    schema: RestaurantPickSchema,
+    maxSearches: 8,
+    location: { city: req.city, timezone: req.timeZone },
+    failure: "Couldn't finish the restaurant research. Try again in a moment.",
+  });
+  return toRecommendations(req, data, "web");
 }
 
 /** Last resort when web search isn't enabled for the API key's organization. */
