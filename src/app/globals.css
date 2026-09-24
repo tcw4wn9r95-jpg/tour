@@ -84,8 +84,8 @@ body {
   min-height: 100dvh;
 }
 
-button,
-a {
+/* No double-tap zoom anywhere (it makes the app look mis-zoomed); pinch-zoom still works. */
+html {
   touch-action: manipulation;
 }
 

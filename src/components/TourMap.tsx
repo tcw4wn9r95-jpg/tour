@@ -1,11 +1,11 @@
 "use client";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { LocateFixed, Maximize2, Minimize2, Route } from "lucide-react";
+import { LocateFixed, Maximize2, Minimize2, Navigation, Route } from "lucide-react";
 import Link from "next/link";
-import { Fragment, useEffect, useMemo, useState } from "react";
-import { Circle, MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
-import { formatClock, formatDistance, formatDuration, MODE_LABEL } from "@/lib/geo";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Circle, MapContainer, Marker, Polyline, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import { formatClock, formatDistance, formatDuration, haversine, MODE_LABEL } from "@/lib/geo";
 import { stopHref } from "@/lib/links";
 import type { LatLng, LegMode, Tour } from "@/lib/types";
 
@@ -18,14 +18,22 @@ const TILE_ATTRIBUTION =
 const MODE_COLOR: Record<LegMode, string> = { walk: "#0a84ff", transit: "#8b5cf6", car: "#ff9500" };
 const MODE_DASH: Record<LegMode, string | undefined> = { walk: "1 9", transit: "10 10", car: undefined };
 
-function stopIcon(n: number, visited: boolean, active: boolean) {
+/** Pins shrink when zoomed out so neighbouring stops don't pile on top of each other. */
+function pinSize(zoom: number): number {
+  if (zoom >= 15) return 30;
+  if (zoom >= 13.5) return 24;
+  return 19;
+}
+
+function stopIcon(n: number, visited: boolean, active: boolean, size: number) {
   const bg = visited ? "#30b158" : active ? "#111114" : "#f0532d";
+  const border = size >= 24 ? 2.5 : 2;
   return L.divIcon({
     className: "",
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
-    popupAnchor: [0, -14],
-    html: `<div style="width:30px;height:30px;border-radius:999px;background:${bg};color:#fff;border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;font:700 13px -apple-system,system-ui,sans-serif">${n}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2],
+    html: `<div style="width:${size}px;height:${size}px;border-radius:999px;background:${bg};color:#fff;border:${border}px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;font:700 ${Math.round(size * 0.44)}px -apple-system,system-ui,sans-serif">${n}</div>`,
   });
 }
 
@@ -44,16 +52,68 @@ const foodIcon = L.divIcon({
   html: `<div style="width:22px;height:22px;border-radius:999px;background:#fff;border:2px solid #ff9500;display:flex;align-items:center;justify-content:center;font-size:11px;box-shadow:0 1px 4px rgba(0,0,0,.25)">🍴</div>`,
 });
 
+const curiosityIcon = L.divIcon({
+  className: "",
+  iconSize: [22, 22],
+  iconAnchor: [11, 11],
+  popupAnchor: [0, -10],
+  html: `<div style="width:22px;height:22px;border-radius:999px;background:#fff7e0;border:2px solid #f5b100;display:flex;align-items:center;justify-content:center;font-size:11px;box-shadow:0 1px 4px rgba(0,0,0,.25)">✨</div>`,
+});
+
 const meIcon = L.divIcon({ className: "", iconSize: [18, 18], iconAnchor: [9, 9], html: `<div class="me-dot"></div>` });
 
-function FitTo({ points, trigger }: { points: LatLng[]; trigger: number }) {
+type Frame = { points: LatLng[]; maxZoom: number };
+
+/**
+ * Keeps the frame in view: on first layout, whenever the container changes size
+ * (full screen, rotation, late layout) and when asked to, but stops following
+ * once the traveller pans or zooms the map themselves.
+ */
+function Framer({ frame, trigger, onZoom }: { frame: Frame; trigger: number; onZoom: (z: number) => void }) {
   const map = useMap();
+  const userMoved = useRef(false);
+  const frameRef = useRef(frame);
+  frameRef.current = frame;
+
+  const fit = () => {
+    const pts = frameRef.current.points;
+    if (pts.length === 0) return;
+    map.invalidateSize({ pan: false });
+    const bounds = L.latLngBounds(pts.map((p) => [p.lat, p.lng] as [number, number]));
+    // Extra room on the right for the map buttons.
+    map.fitBounds(bounds, { paddingTopLeft: [28, 36], paddingBottomRight: [64, 36], maxZoom: frameRef.current.maxZoom, animate: false });
+  };
+
+  useMapEvents({
+    dragstart: () => (userMoved.current = true),
+    zoomend: () => onZoom(map.getZoom()),
+  });
+
   useEffect(() => {
-    if (points.length === 0) return;
-    const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng] as [number, number]));
-    map.fitBounds(bounds, { padding: [36, 36], maxZoom: 16 });
+    const container = map.getContainer();
+    const markUser = () => (userMoved.current = true);
+    const onTouch = (e: TouchEvent) => e.touches.length > 1 && markUser(); // pinch
+    container.addEventListener("wheel", markUser, { passive: true });
+    container.addEventListener("touchstart", onTouch, { passive: true });
+    const observer = new ResizeObserver(() => {
+      if (userMoved.current) map.invalidateSize();
+      else fit();
+    });
+    observer.observe(container);
+    return () => {
+      observer.disconnect();
+      container.removeEventListener("wheel", markUser);
+      container.removeEventListener("touchstart", onTouch);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, trigger]);
+  }, [map]);
+
+  useEffect(() => {
+    userMoved.current = false;
+    fit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trigger]);
+
   return null;
 }
 
@@ -65,21 +125,25 @@ function Recenter({ target }: { target: { p: LatLng; n: number } | null }) {
   return null;
 }
 
-function InvalidateOnResize({ expanded }: { expanded: boolean }) {
-  const map = useMap();
-  useEffect(() => {
-    const t = setTimeout(() => map.invalidateSize(), 250);
-    return () => clearTimeout(t);
-  }, [map, expanded]);
-  return null;
-}
-
-export default function TourMap({ tour, className = "", focusStopId }: { tour: Tour; className?: string; focusStopId?: string }) {
+export default function TourMap({
+  tour,
+  className = "",
+  focusStopId,
+  focus = "route",
+}: {
+  tour: Tour;
+  className?: string;
+  focusStopId?: string;
+  /** "route": the whole day. "next": street-level view of the way to the next unvisited stop. */
+  focus?: "route" | "next";
+}) {
   const [me, setMe] = useState<{ p: LatLng; accuracy: number } | null>(null);
   const [locError, setLocError] = useState<string | null>(null);
+  const [mode, setMode] = useState(focus);
   const [fitTrigger, setFitTrigger] = useState(0);
   const [recenter, setRecenter] = useState<{ p: LatLng; n: number } | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [zoom, setZoom] = useState(14);
 
   useEffect(() => {
     if (!("geolocation" in navigator)) return;
@@ -94,34 +158,49 @@ export default function TourMap({ tour, className = "", focusStopId }: { tour: T
     return () => navigator.geolocation.clearWatch(id);
   }, []);
 
-  const points = useMemo(() => {
-    const pts: LatLng[] = tour.stops.map((s) => ({ lat: s.lat, lng: s.lng }));
-    if (tour.start) pts.push(tour.start);
-    return pts;
-  }, [tour]);
-
   const byId = useMemo(() => {
     const m = new Map<string, LatLng>(tour.stops.map((s) => [s.id, s]));
     if (tour.start) m.set("start", tour.start);
     return m;
   }, [tour]);
 
+  const nextIndex = tour.stops.findIndex((s) => !s.visited);
+  const nextStop = nextIndex >= 0 ? tour.stops[nextIndex] : undefined;
+  const hasMe = me !== null;
+
+  const frame = useMemo<Frame>(() => {
+    const route: LatLng[] = tour.stops.map((s) => ({ lat: s.lat, lng: s.lng }));
+    if (tour.start) route.push(tour.start);
+    if (mode === "route" || !nextStop) return { points: route, maxZoom: 16 };
+    // Where you are (if you're nearby) or the previous stop, plus the next stop.
+    const from = me && haversine(me.p, nextStop) < 3000 ? me.p : nextIndex > 0 ? tour.stops[nextIndex - 1] : (tour.start ?? null);
+    return { points: [nextStop, ...(from ? [from] : [])], maxZoom: 17 };
+    // Re-frame when the next stop changes or location first arrives, not on every GPS tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tour, mode, nextStop?.id, hasMe]);
+
+  useEffect(() => setFitTrigger((n) => n + 1), [frame]);
+
   const restaurants = (tour.restaurants ?? []).flatMap((r) => r.restaurants.filter((x) => x.lat != null && x.lng != null));
+  const curiosities = (tour.curiosities ?? []).filter((c) => c.lat != null && c.lng != null);
+  const size = pinSize(zoom);
 
   return (
     <div className={expanded ? "fixed inset-0 z-[1200] bg-bg" : `relative overflow-hidden ${className}`}>
       <MapContainer
         center={[tour.center.lat, tour.center.lng]}
         zoom={14}
+        zoomSnap={0.25}
+        zoomDelta={0.5}
+        wheelPxPerZoomLevel={120}
         zoomControl={false}
         attributionControl
         className="h-full w-full"
         style={{ height: "100%", width: "100%" }}
       >
         <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} maxZoom={19} />
-        <FitTo points={points} trigger={fitTrigger} />
+        <Framer frame={frame} trigger={fitTrigger} onZoom={setZoom} />
         <Recenter target={recenter} />
-        <InvalidateOnResize expanded={expanded} />
 
         {tour.legs.map((leg) => {
           const a = byId.get(leg.fromId);
@@ -153,23 +232,38 @@ export default function TourMap({ tour, className = "", focusStopId }: { tour: T
           </Marker>
         ))}
 
-        {tour.start && <Marker position={[tour.start.lat, tour.start.lng]} icon={startIcon} />}
-
-        {tour.stops.map((s, i) => (
-          <Marker key={s.id} position={[s.lat, s.lng]} icon={stopIcon(i + 1, Boolean(s.visited), s.id === focusStopId)} zIndexOffset={s.id === focusStopId ? 1000 : 0}>
+        {curiosities.map((c) => (
+          <Marker key={c.id} position={[c.lat!, c.lng!]} icon={curiosityIcon}>
             <Popup>
-              <div style={{ minWidth: 160 }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>
-                  {i + 1}. {s.name}
-                </div>
-                {s.arriveAt && <div style={{ color: "#6c6c76", margin: "2px 0 6px" }}>{formatClock(s.arriveAt)} · {s.durationMin} min</div>}
-                <Link href={stopHref(tour.id, s.id)} style={{ color: "#f0532d", fontWeight: 600 }}>
-                  Open guide →
-                </Link>
+              <div style={{ maxWidth: 220 }}>
+                <b>{c.title}</b>
+                <div style={{ margin: "4px 0" }}>{c.lookFor}</div>
+                <div style={{ color: "#6c6c76", fontSize: 11 }}>via {c.sourceName}</div>
               </div>
             </Popup>
           </Marker>
         ))}
+
+        {tour.start && <Marker position={[tour.start.lat, tour.start.lng]} icon={startIcon} />}
+
+        {tour.stops.map((s, i) => {
+          const active = s.id === focusStopId || (mode === "next" && s.id === nextStop?.id);
+          return (
+            <Marker key={s.id} position={[s.lat, s.lng]} icon={stopIcon(i + 1, Boolean(s.visited), active, size)} zIndexOffset={active ? 1000 : 0}>
+              <Popup>
+                <div style={{ minWidth: 160 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>
+                    {i + 1}. {s.name}
+                  </div>
+                  {s.arriveAt && <div style={{ color: "#6c6c76", margin: "2px 0 6px" }}>{formatClock(s.arriveAt)} · {s.durationMin} min</div>}
+                  <Link href={stopHref(tour.id, s.id)} style={{ color: "#f0532d", fontWeight: 600 }}>
+                    Open guide →
+                  </Link>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
 
         {me && (
           <>
@@ -183,9 +277,28 @@ export default function TourMap({ tour, className = "", focusStopId }: { tour: T
         <MapButton label={expanded ? "Close full screen" : "Full screen"} onClick={() => setExpanded((e) => !e)}>
           {expanded ? <Minimize2 className="size-5" /> : <Maximize2 className="size-5" />}
         </MapButton>
-        <MapButton label="Show whole route" onClick={() => setFitTrigger((n) => n + 1)}>
+        <MapButton
+          label="Show whole route"
+          active={mode === "route"}
+          onClick={() => {
+            setMode("route");
+            setFitTrigger((n) => n + 1);
+          }}
+        >
           <Route className="size-5" />
         </MapButton>
+        {nextStop && (
+          <MapButton
+            label="Zoom to next stop"
+            active={mode === "next"}
+            onClick={() => {
+              setMode("next");
+              setFitTrigger((n) => n + 1);
+            }}
+          >
+            <Navigation className="size-5" />
+          </MapButton>
+        )}
         <MapButton
           label="Show my location"
           onClick={() => (me ? setRecenter({ p: me.p, n: Date.now() }) : setLocError("Waiting for your location…"))}
@@ -200,13 +313,15 @@ export default function TourMap({ tour, className = "", focusStopId }: { tour: T
   );
 }
 
-function MapButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
+function MapButton({ label, onClick, active, children }: { label: string; onClick: () => void; active?: boolean; children: React.ReactNode }) {
   return (
     <button
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="flex size-10 items-center justify-center rounded-xl border border-line bg-card/95 text-fg shadow-md backdrop-blur active:scale-95"
+      className={`flex size-10 items-center justify-center rounded-xl border shadow-md backdrop-blur active:scale-95 ${
+        active ? "border-accent bg-accent text-white" : "border-line bg-card/95 text-fg"
+      }`}
     >
       {children}
     </button>

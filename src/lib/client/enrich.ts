@@ -9,7 +9,7 @@ import { estimateLegs, longLegEstimate, orderStops, parseStartTime, roundUpTo5, 
 import { hasAudioGuide } from "../labels";
 import type { StopContent } from "../schemas";
 import type { LatLng, Leg, LongLegMode, Photo, RawPlan, Stop, StopDetails, Tour, TourRequest } from "../types";
-import { fetchRestaurants, fetchStopDetails, fetchTodayIntro } from "./api";
+import { fetchCuriosities, fetchRestaurants, fetchStopDetails, fetchTodayIntro } from "./api";
 import { useEffect, useState } from "react";
 import { getTour, saveTour, updateTour } from "./store";
 
@@ -490,11 +490,35 @@ export function ensureRestaurants(tourId: string, force = false): Promise<void> 
   });
 }
 
+/** Searches travelers' forums for quirky, overlooked things along the route. */
+export function ensureCuriosities(tourId: string, force = false): Promise<void> {
+  return track(tourId, "curiosities", async () => {
+    const tour = await getTour(tourId);
+    if (!tour || (tour.curiosities && !force)) return;
+    const legTo = new Map(tour.legs.map((l) => [l.toId, l]));
+    const route = [
+      ...(tour.start ? [{ id: "start", name: "Starting point", lat: tour.start.lat, lng: tour.start.lng }] : []),
+      ...tour.stops.map((s) => {
+        const leg = legTo.get(s.id);
+        return {
+          id: s.id,
+          name: s.name,
+          lat: s.lat,
+          lng: s.lng,
+          legTo: leg ? `${formatDuration(leg.durationMin)} ${leg.mode === "walk" ? "walk" : MODE_LABEL[leg.mode].toLowerCase()}` : undefined,
+        };
+      }),
+    ];
+    const curiosities = await fetchCuriosities({ city: tour.city, country: tour.country, focus: tour.request.focus, route });
+    await updateTour(tourId, (t) => ({ ...t, curiosities }));
+  });
+}
+
 /** Fills whatever is still missing. Safe to call repeatedly. */
 export async function ensureTourContent(tourId: string): Promise<void> {
   const tour = await getTour(tourId);
   if (!tour) return;
-  const jobs: Promise<void>[] = [ensureTodayIntro(tourId), ensureRestaurants(tourId)];
+  const jobs: Promise<void>[] = [ensureTodayIntro(tourId), ensureRestaurants(tourId), ensureCuriosities(tourId)];
   const missing = tour.stops.filter((s) => !s.details).map((s) => s.id);
   jobs.push(mapLimit(missing, 3, (id) => ensureStopDetails(tourId, id)).then(() => undefined));
   await Promise.allSettled(jobs);

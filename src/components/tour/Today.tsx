@@ -1,15 +1,17 @@
 "use client";
-import { Check, ChevronRight, Flag, Loader2, RefreshCw } from "lucide-react";
+import { Check, ChevronRight, Flag, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { EpisodeCard, PlayChip } from "@/components/Narration";
 import { Photo } from "@/components/Photo";
-import { ensureRestaurants, ensureTodayIntro, useTourTasks } from "@/lib/client/enrich";
+import { TourMapLazy } from "@/components/TourMapLazy";
+import { ensureCuriosities, ensureRestaurants, ensureTodayIntro, useTourTasks } from "@/lib/client/enrich";
 import { updateTour } from "@/lib/client/store";
-import { formatClock } from "@/lib/geo";
+import { formatClock, formatDistance, formatDuration, MODE_LABEL } from "@/lib/geo";
 import { CATEGORY_LABEL, hasAudioGuide } from "@/lib/labels";
 import { stopHref, tourHref } from "@/lib/links";
 import type { Stop, Tour } from "@/lib/types";
 import { LegRow } from "./LegRow";
+import { CuriosityGroup } from "./Curiosities";
 import { MealBreak } from "./Restaurants";
 
 export function Today({ tour }: { tour: Tour }) {
@@ -17,10 +19,17 @@ export function Today({ tour }: { tour: Tour }) {
   const legTo = new Map(tour.legs.map((l) => [l.toId, l]));
   const pointOf = (id: string) => (id === "start" ? tour.start : tour.stops.find((s) => s.id === id));
   const visited = tour.stops.filter((s) => s.visited).length;
+  const nextStop = tour.stops.find((s) => !s.visited);
+  const nextLeg = nextStop ? legTo.get(nextStop.id) : undefined;
   const date = new Date(tour.startAt).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
   const introFailed = tasks.failed.includes("today");
   const restaurantsLoading = !tour.restaurants && !tasks.failed.includes("restaurants");
   const restaurantsFailed = tasks.failed.includes("restaurants");
+
+  const curiosities = tour.curiosities ?? [];
+  const onTheWayFrom = (id: string) => curiosities.filter((c) => c.onTheWay && c.nearStopId === id);
+  const curiositiesFailed = tasks.failed.includes("curiosities");
+  const searchingForums = !tour.curiosities && !curiositiesFailed;
 
   const meals = (afterStopId: string | null) =>
     tour.meals
@@ -78,6 +87,33 @@ export function Today({ tour }: { tour: Tour }) {
         )}
       </div>
 
+      {(searchingForums || curiositiesFailed) && (
+        <div className="mt-3 flex items-center gap-2 px-1 text-sm text-muted">
+          <Sparkles className="size-4 shrink-0 text-amber-500" />
+          {curiositiesFailed ? (
+            <button onClick={() => void ensureCuriosities(tour.id, true)} className="text-left font-medium text-accent">
+              Couldn&apos;t search travel forums for hidden quirks — retry
+            </button>
+          ) : (
+            <span>Searching travel forums for quirky things along your route…</span>
+          )}
+        </div>
+      )}
+
+      {nextStop && (
+        <section className="mt-5">
+          <div className="mb-2 flex items-baseline justify-between gap-3 px-1">
+            <h2 className="min-w-0 truncate font-semibold">Next: {nextStop.name}</h2>
+            {nextLeg && (
+              <span className="shrink-0 text-sm text-muted">
+                {formatDuration(nextLeg.durationMin)} {nextLeg.mode === "walk" ? "walk" : MODE_LABEL[nextLeg.mode].toLowerCase()} · {formatDistance(nextLeg.distanceM)}
+              </span>
+            )}
+          </div>
+          <TourMapLazy tour={tour} focus="next" className="h-56 rounded-3xl" />
+        </section>
+      )}
+
       <div className="mt-6">
         {tour.start && (
           <div className="flex items-center gap-3">
@@ -91,14 +127,21 @@ export function Today({ tour }: { tour: Tour }) {
           </div>
         )}
         {meals(null)}
+        <div className="py-1.5 pl-2">
+          <CuriosityGroup title={`On the way to ${tour.stops[0]?.name ?? "your first stop"}`} items={onTheWayFrom("start")} />
+        </div>
         {tour.stops.map((stop, i) => {
           const leg = legTo.get(stop.id);
           const from = leg ? pointOf(leg.fromId) : undefined;
+          const next = tour.stops[i + 1];
           return (
             <div key={stop.id}>
               {leg && <LegRow leg={leg} from={from ?? undefined} to={stop} />}
-              <StopCard tour={tour} stop={stop} index={i} />
+              <StopCard tour={tour} stop={stop} index={i} secrets={curiosities.filter((c) => !c.onTheWay && c.nearStopId === stop.id).length} />
               {meals(stop.id)}
+              <div className="py-1.5 pl-2">
+                <CuriosityGroup title={next ? `On the way to ${next.name}` : "Before you go"} items={onTheWayFrom(stop.id)} />
+              </div>
             </div>
           );
         })}
@@ -116,7 +159,7 @@ export function Today({ tour }: { tour: Tour }) {
   );
 }
 
-function StopCard({ tour, stop, index }: { tour: Tour; stop: Stop; index: number }) {
+function StopCard({ tour, stop, index, secrets }: { tour: Tour; stop: Stop; index: number; secrets: number }) {
   const href = stopHref(tour.id, stop.id);
   const toggleVisited = () =>
     void updateTour(tour.id, (t) => ({ ...t, stops: t.stops.map((s) => (s.id === stop.id ? { ...s, visited: !s.visited } : s)) }));
@@ -170,6 +213,11 @@ function StopCard({ tour, stop, index }: { tour: Tour; stop: Stop; index: number
           <Link href={href} className="ml-auto flex items-center text-sm font-semibold text-accent">
             Guide <ChevronRight className="size-4" />
           </Link>
+          {secrets > 0 && (
+            <Link href={href} className="flex w-full items-center gap-1.5 text-sm text-amber-700 dark:text-amber-300">
+              <Sparkles className="size-4" /> {secrets === 1 ? "1 thing" : `${secrets} things`} most tours miss here
+            </Link>
+          )}
         </div>
       </div>
     </div>

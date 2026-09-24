@@ -8,6 +8,7 @@ import { Today } from "@/components/tour/Today";
 import { prefetchVoices } from "@/lib/audio/player";
 import { ensureRestaurants, ensureTourContent, useTourTasks } from "@/lib/client/enrich";
 import { deleteTour, useTour } from "@/lib/client/store";
+import { tourHref } from "@/lib/links";
 import type { VoicePriority } from "@/lib/guide/voice-budget";
 import { hasAudioGuide } from "@/lib/labels";
 import type { Tour } from "@/lib/types";
@@ -32,17 +33,15 @@ function Spinner() {
 }
 
 function TourScreen() {
-  const id = useSearchParams().get("id") ?? "";
+  const params = useSearchParams();
+  const id = params.get("id") ?? "";
+  // The tab lives in the URL so links (e.g. from the mini player) can open it.
+  const tab: Tab = params.get("tab") === "today" ? "today" : "overview";
   const tour = useTour(id);
   const router = useRouter();
   const tasks = useTourTasks(id);
-  const [tab, setTab] = useState<Tab>("overview");
   const [menu, setMenu] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (window.location.hash === "#today") setTab("today");
-  }, []);
 
   // Resume any background work (stop guides, welcome audio, restaurants).
   useEffect(() => {
@@ -50,8 +49,7 @@ function TourScreen() {
   }, [id]);
 
   const switchTab = (t: Tab) => {
-    setTab(t);
-    history.replaceState(null, "", `${location.pathname}${location.search}${t === "today" ? "#today" : ""}`);
+    router.replace(tourHref(id, t === "today" ? "today" : undefined), { scroll: false });
     window.scrollTo({ top: 0 });
   };
 

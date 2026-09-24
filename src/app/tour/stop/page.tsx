@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { EpisodeCard, PlayChip } from "@/components/Narration";
 import { Photo } from "@/components/Photo";
+import { CuriosityGroup } from "@/components/tour/Curiosities";
 import { ensureStopDetails, useTourTasks } from "@/lib/client/enrich";
 import { updateTour, useTour } from "@/lib/client/store";
 import { appleDirectionsUrl, formatClock, formatDistance, formatDuration, MODE_LABEL } from "@/lib/geo";
@@ -69,6 +70,8 @@ function StopScreen({ id, stopId }: { id: string; stopId: string }) {
   const next = tour.stops[index + 1];
   const legOut = next ? tour.legs.find((l) => l.toId === next.id) : undefined;
   const prev = tour.stops[index - 1];
+  const secretsHere = (tour.curiosities ?? []).filter((c) => !c.onTheWay && c.nearStopId === stop.id);
+  const secretsNext = (tour.curiosities ?? []).filter((c) => c.onTheWay && c.nearStopId === stop.id);
   const photos = [stop.photo, ...(d?.gallery ?? []).filter((p) => p.url !== stop.photo?.url)].filter(Boolean) as PhotoT[];
   const baseTrack = { subtitle: `Stop ${index + 1} · ${stop.name}`, artwork: stop.photo?.url, href: stopHref(tour.id, stop.id) };
 
@@ -189,6 +192,14 @@ function StopScreen({ id, stopId }: { id: string; stopId: string }) {
               ))}
             </div>
           </section>
+
+          {secretsHere.length + secretsNext.length > 0 && (
+            <section className="mx-4 mt-7 space-y-4">
+              <h2 className="px-1 font-display text-[22px] font-bold">Off the tourist script</h2>
+              <CuriosityGroup title="Right here" items={secretsHere} />
+              <CuriosityGroup title={next ? `On the way to ${next.name}` : "On your way out"} items={secretsNext} />
+            </section>
+          )}
 
           <section className="mx-4 mt-6 space-y-3 rounded-3xl bg-card p-5 text-[15px]">
             <h2 className="font-semibold">Good to know today</h2>

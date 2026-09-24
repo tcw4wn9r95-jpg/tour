@@ -2,12 +2,12 @@
 // How the app reaches the guide. Server-hosted builds call the API routes; the
 // GitHub Pages build (NEXT_PUBLIC_STATIC_EXPORT=1) has no server, so it runs the
 // same guide code right here with the keys saved in Settings.
-import type { DetailsInput, TodayInput } from "../guide/prompts";
+import type { CuriositiesInput, DetailsInput, TodayInput } from "../guide/prompts";
 import type { RestaurantsRequest } from "../guide/restaurants";
 import type { PlanProgress } from "../guide/service";
 import type { VoicePriority, VoiceUsage } from "../guide/voice-budget";
 import type { StopContent } from "../schemas";
-import type { AppConfig, MealRecommendation, Narration, RawPlan, TourRequest } from "../types";
+import type { AppConfig, Curiosity, MealRecommendation, Narration, RawPlan, TourRequest } from "../types";
 
 export const IS_STATIC = process.env.NEXT_PUBLIC_STATIC_EXPORT === "1";
 /** Path prefix when served from a sub-path, e.g. "/tour" on GitHub Pages. */
@@ -161,6 +161,9 @@ export const fetchTodayIntro = (body: TodayInput, signal?: AbortSignal): Promise
 
 export const fetchRestaurants = (body: RestaurantsRequest, signal?: AbortSignal): Promise<MealRecommendation[]> =>
   IS_STATIC ? onDevice((env, guide) => guide.findRestaurants(env, body)) : post("/api/restaurants", body, signal);
+
+export const fetchCuriosities = (body: CuriositiesInput, signal?: AbortSignal): Promise<Curiosity[]> =>
+  IS_STATIC ? onDevice((env, guide) => guide.findCuriosities(env, body)) : post("/api/curiosities", body, signal);
 
 /** MP3 narration. Throws ApiError code "voice-budget" when ElevenLabs credits must be saved. */
 export async function fetchSpeech(text: string, priority: VoicePriority, signal?: AbortSignal): Promise<Blob> {

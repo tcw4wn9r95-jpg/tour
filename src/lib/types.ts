@@ -146,6 +146,27 @@ export interface MealRecommendation {
   note?: string;
 }
 
+export type CuriosityKind = "quirk" | "legend" | "hidden-detail" | "local-habit" | "street-art" | "viewpoint";
+
+/** Something quirky or overlooked on the route, found in travelers' forums. */
+export interface Curiosity {
+  id: string;
+  title: string;
+  story: string;
+  lookFor: string;
+  /** Short directions, e.g. "on the corner of Rua X, 50 m after the monastery". */
+  where: string;
+  kind: CuriosityKind;
+  /** The stop it's at, or the stop you've just left when `onTheWay` ("start" = your starting point). */
+  nearStopId: string;
+  onTheWay: boolean;
+  lat: number | null;
+  lng: number | null;
+  sourceName: string;
+  /** A page the web search actually returned; null only for demo content. */
+  sourceUrl: string | null;
+}
+
 export interface TourIntro {
   headline: string;
   welcome: string[];
@@ -176,6 +197,7 @@ export interface Tour {
   coverPhoto?: Photo;
   todayIntro?: Narration;
   restaurants?: MealRecommendation[];
+  curiosities?: Curiosity[];
   demo?: boolean;
 }
 
