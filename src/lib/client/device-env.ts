@@ -19,7 +19,12 @@ export function deviceEnv(): GuideEnv {
     claude: keys.anthropic ? new Anthropic({ apiKey: keys.anthropic, dangerouslyAllowBrowser: true, maxRetries: 2 }) : null,
     model: DEFAULT_MODEL,
     effort: "medium",
-    tts: { elevenlabsKey: keys.elevenlabs || undefined, elevenlabsVoice: keys.elevenlabsVoice || undefined, openaiKey: keys.openai || undefined },
+    tts: {
+      elevenlabsKey: keys.elevenlabs || undefined,
+      elevenlabsVoice: keys.elevenlabsVoice || undefined,
+      elevenlabsStayFree: keys.elevenlabsFreeTier,
+      openaiKey: keys.openai || undefined,
+    },
     googlePlacesKey: keys.googlePlaces || undefined,
     // Google redirects this URL to the photo, so an <img> can load it directly.
     placePhotoUrl: (name) => `https://places.googleapis.com/v1/${name}/media?maxWidthPx=640&key=${encodeURIComponent(keys.googlePlaces)}`,

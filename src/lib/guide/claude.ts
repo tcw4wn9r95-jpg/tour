@@ -3,6 +3,7 @@ import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type { BetaMessageStreamParams } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import type { z } from "zod/v4";
 import type { Effort, GuideEnv } from "./env";
+import { VoiceBudgetError } from "./voice-budget";
 
 // Server-side refusal fallbacks re-run a declined request on another model
 // inside the same call. Only sent for models that support the "default" form.
@@ -19,6 +20,7 @@ export class GuideError extends Error {
   constructor(
     message: string,
     readonly status = 502,
+    readonly code?: string,
   ) {
     super(message);
   }
@@ -110,8 +112,8 @@ function safeJson(text: string): unknown {
 }
 
 /** Maps SDK errors to a short message the phone UI can show. */
-export function describeError(err: unknown): { message: string; status: number } {
-  if (err instanceof GuideError) return { message: err.message, status: err.status };
+export function describeError(err: unknown): { message: string; status: number; code?: string } {
+  if (err instanceof GuideError || err instanceof VoiceBudgetError) return { message: err.message, status: err.status, code: err.code };
   if (err instanceof Anthropic.AuthenticationError) return { message: "The Anthropic API key is invalid.", status: 500 };
   if (err instanceof Anthropic.RateLimitError) return { message: "Claude is busy right now — try again in a minute.", status: 429 };
   if (err instanceof Anthropic.APIError) return { message: `Claude API error (${err.status ?? "network"}).`, status: 502 };

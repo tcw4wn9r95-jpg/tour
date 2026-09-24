@@ -8,10 +8,12 @@ export interface DeviceKeys {
   elevenlabsVoice: string;
   openai: string;
   googlePlaces: string;
+  /** Keep ElevenLabs within its free 10,000 credits a month. */
+  elevenlabsFreeTier: boolean;
 }
 
 const STORAGE_KEY = "citytour.keys";
-const EMPTY: DeviceKeys = { anthropic: "", elevenlabs: "", elevenlabsVoice: "", openai: "", googlePlaces: "" };
+const EMPTY: DeviceKeys = { anthropic: "", elevenlabs: "", elevenlabsVoice: "", openai: "", googlePlaces: "", elevenlabsFreeTier: true };
 
 export function getDeviceKeys(): DeviceKeys {
   try {
@@ -23,7 +25,7 @@ export function getDeviceKeys(): DeviceKeys {
 }
 
 export function saveDeviceKeys(keys: DeviceKeys): void {
-  const trimmed = Object.fromEntries(Object.entries(keys).map(([k, v]) => [k, v.trim()])) as unknown as DeviceKeys;
+  const trimmed = Object.fromEntries(Object.entries(keys).map(([k, v]) => [k, typeof v === "string" ? v.trim() : v])) as unknown as DeviceKeys;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
 }
 

@@ -15,6 +15,8 @@ export function parseEffort(value: string | undefined): Effort {
 
 export interface TtsKeys {
   elevenlabsKey?: string;
+  /** Cap ElevenLabs usage at the free plan's 10,000 credits a month (default on). */
+  elevenlabsStayFree?: boolean;
   elevenlabsVoice?: string;
   elevenlabsModel?: string;
   openaiKey?: string;

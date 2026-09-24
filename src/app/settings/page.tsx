@@ -2,9 +2,10 @@
 import { Check, ChevronLeft, ExternalLink, KeyRound, Loader2, ShieldCheck, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { IS_STATIC, loadConfig } from "@/lib/client/api";
+import { fetchVoiceUsage, IS_STATIC, loadConfig } from "@/lib/client/api";
 import { clearDeviceKeys, getDeviceKeys, saveDeviceKeys, type DeviceKeys } from "@/lib/client/device-keys";
 import { useConfig } from "@/lib/client/useConfig";
+import { FREE_TIER_CREDITS, MAIN_STORY_RESERVE, type VoiceUsage } from "@/lib/guide/voice-budget";
 
 const VOICE_LABEL = { elevenlabs: "ElevenLabs", openai: "OpenAI", browser: "iPhone's built-in voice" };
 const RESTAURANT_LABEL = { google: "Google Places ratings", web: "Claude web search", demo: "Sample picks (demo)" };
@@ -25,6 +26,7 @@ export default function Settings() {
           <Status ok={config.claude} label="Tour planning" value={config.claude ? `Claude (${config.model})` : "Demo mode — sample Lisbon tour"} />
           <Status ok={config.tts !== "browser"} label="Voice" value={VOICE_LABEL[config.tts]} />
           <Status ok={config.restaurants !== "demo"} label="Restaurants" value={RESTAURANT_LABEL[config.restaurants]} />
+          {config.tts === "elevenlabs" && <VoiceMeter />}
         </section>
       )}
 
@@ -45,6 +47,47 @@ function Status({ ok, label, value }: { ok: boolean; label: string; value: strin
       <span className={`size-2.5 shrink-0 rounded-full ${ok ? "bg-good" : "bg-car"}`} />
       <span className="w-28 shrink-0 text-muted">{label}</span>
       <span className="font-medium">{value}</span>
+    </div>
+  );
+}
+
+/** ElevenLabs credits used this month against the app's budget. */
+function VoiceMeter() {
+  const config = useConfig();
+  const [usage, setUsage] = useState<VoiceUsage | null | undefined>(undefined);
+  useEffect(() => {
+    let alive = true;
+    fetchVoiceUsage()
+      .then((u) => alive && setUsage(u))
+      .catch(() => alive && setUsage(null));
+    return () => {
+      alive = false;
+    };
+  }, [config]);
+
+  if (usage === undefined) return <p className="pt-2 text-xs text-muted">Checking ElevenLabs credits…</p>;
+  if (usage === null) {
+    return (
+      <p className="pt-2 text-xs text-muted">
+        Can&apos;t read your ElevenLabs usage. Give the API key the <b>User → Read</b> permission so the app can keep you inside your budget
+        (ElevenLabs still stops a free account at its monthly limit).
+      </p>
+    );
+  }
+  const pct = Math.min(100, (usage.used / usage.budget) * 100);
+  const reset = usage.resetsAt ? new Date(usage.resetsAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : null;
+  return (
+    <div className="pt-2">
+      <div className="flex justify-between text-xs text-muted">
+        <span>
+          ElevenLabs: {Math.round(usage.used).toLocaleString()} of {usage.budget.toLocaleString()} credits
+          {usage.budget < usage.limit ? " (free-tier cap)" : ""}
+        </span>
+        {reset && <span>resets {reset}</span>}
+      </div>
+      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-chip">
+        <div className={`h-full rounded-full ${pct > 85 ? "bg-car" : "bg-good"}`} style={{ width: `${pct}%` }} />
+      </div>
     </div>
   );
 }
@@ -109,7 +152,28 @@ function KeyForm() {
         onChange={set("elevenlabs")}
       />
       {keys.elevenlabs && (
-        <Field label="ElevenLabs voice ID" hint="Optional. Leave empty for the default narrator." value={keys.elevenlabsVoice} onChange={set("elevenlabsVoice")} plain />
+        <>
+          <Field label="ElevenLabs voice ID" hint="Optional. Leave empty for the default narrator." value={keys.elevenlabsVoice} onChange={set("elevenlabsVoice")} plain />
+          <label className="flex gap-3 rounded-2xl bg-card p-4">
+            <input
+              type="checkbox"
+              checked={keys.elevenlabsFreeTier}
+              onChange={(e) => {
+                setKeys({ ...keys, elevenlabsFreeTier: e.target.checked });
+                setState({ kind: "idle" });
+              }}
+              className="mt-1 size-5 shrink-0 accent-[var(--accent)]"
+            />
+            <span className="text-sm">
+              <b>Stay within the free tier</b> ({FREE_TIER_CREDITS.toLocaleString()} credits a month)
+              <span className="mt-1 block text-xs text-muted">
+                Uses the Flash voice (half a credit per character, about 20 minutes a month), keeps {MAIN_STORY_RESERVE.toLocaleString()} credits for
+                the main one-minute stories, and switches to the iPhone voice before the credits run out. Recordings are saved, so replays are
+                free.
+              </span>
+            </span>
+          </label>
+        </>
       )}
       <Field
         label="OpenAI API key"

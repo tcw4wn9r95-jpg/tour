@@ -26,7 +26,7 @@ export function MiniPlayer() {
         <Link href={state.track.href ?? "#"} className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold">{state.track.title}</div>
           <div className="truncate text-xs text-muted">
-            {state.status === "loading" ? "Recording your guide…" : state.status === "error" ? state.error : state.track.subtitle}
+            {state.status === "loading" ? "Recording your guide…" : state.status === "error" ? state.error : (state.notice ?? state.track.subtitle)}
           </div>
         </Link>
         <button aria-label="Play or pause" onClick={() => player.toggle(state.track!)} className="flex size-10 items-center justify-center rounded-full bg-accent text-white">

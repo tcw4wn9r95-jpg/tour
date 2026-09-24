@@ -84,7 +84,7 @@ export const StopDetailsSchema = z.object({
         description: z.string().describe("2-4 sentences"),
         lookFor: z.string().describe("One concrete thing to spot in person"),
         imageSearch: z.string().describe("Search phrase for a Wikimedia Commons photo of this exact feature"),
-        narration: narration.describe("Audio script for this feature, ~70-100 words"),
+        narration: narration.describe("Audio script for this feature, ~50-70 words (about 25 seconds)"),
       }),
     )
     .describe("3-5 interesting features of the place"),

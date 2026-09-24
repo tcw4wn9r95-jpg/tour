@@ -8,6 +8,7 @@ import { Today } from "@/components/tour/Today";
 import { prefetchVoices } from "@/lib/audio/player";
 import { ensureRestaurants, ensureTourContent, useTourTasks } from "@/lib/client/enrich";
 import { deleteTour, useTour } from "@/lib/client/store";
+import type { VoicePriority } from "@/lib/guide/voice-budget";
 import type { Tour } from "@/lib/types";
 
 type Tab = "overview" | "today";
@@ -67,15 +68,18 @@ function TourScreen() {
 
   const downloadAudio = async () => {
     setMenu(false);
-    const scripts = collectScripts(tour);
     try {
       setToast("Downloading audio…");
-      await prefetchVoices(scripts, (done, total) => setToast(`Downloading audio ${done}/${total}…`));
-      setToast("Audio saved for offline use ✓");
+      const { saved, skipped } = await prefetchVoices(collectClips(tour), (done, total) => setToast(`Downloading audio ${done}/${total}…`));
+      setToast(
+        skipped === 0
+          ? "Audio saved for offline use ✓"
+          : `Saved ${saved} clips. ${skipped} will use the iPhone voice to stay within your ElevenLabs credits.`,
+      );
     } catch {
       setToast("Some audio couldn't be downloaded. Try again with a better connection.");
     }
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), 4500);
   };
 
   return (
@@ -152,12 +156,13 @@ function TourScreen() {
   );
 }
 
-function collectScripts(tour: Tour): string[] {
-  const out: string[] = [];
-  if (tour.todayIntro) out.push(tour.todayIntro.script);
+function collectClips(tour: Tour): { script: string; priority: VoicePriority }[] {
+  const out: { script: string; priority: VoicePriority }[] = [];
+  if (tour.todayIntro) out.push({ script: tour.todayIntro.script, priority: "main" });
   for (const s of tour.stops) {
     if (!s.details) continue;
-    out.push(s.details.narration.script, ...s.details.features.map((f) => f.narration.script));
+    out.push({ script: s.details.narration.script, priority: "main" });
+    out.push(...s.details.features.map((f) => ({ script: f.narration.script, priority: "extra" as const })));
   }
   return out;
 }

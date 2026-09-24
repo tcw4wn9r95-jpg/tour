@@ -26,11 +26,23 @@ On a server these are environment variables. In the GitHub Pages version you pas
 | Variable | Needed? | What it does |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | **Yes** | Claude plans the tour, writes each stop's guide and narration, and researches restaurants with web search. |
-| `ELEVENLABS_API_KEY` *or* `OPENAI_API_KEY` | Recommended | Natural "podcast host" voice. Without either, the app uses the iPhone's built-in English voice, still over background music. |
+| `ELEVENLABS_API_KEY` *or* `OPENAI_API_KEY` | Recommended | Natural "podcast host" voice. Without either, the app uses the iPhone's built-in English voice, still over background music. ElevenLabs is kept within its free tier by default (see below). |
 | `GOOGLE_PLACES_API_KEY` | Optional | Real Google ratings, review counts, photos and opening hours for restaurant picks (enable *Places API (New)*). |
 | `APP_PASSCODE` | Recommended when deployed | Only people with the passcode can use your deployment, so no one else can spend your API credits. |
 | `TOUR_CLAUDE_MODEL` / `TOUR_CLAUDE_EFFORT` | Optional | Defaults: `claude-opus-5` / `medium`. |
 | `NEXT_PUBLIC_TILE_URL` | Optional | Map tiles; defaults to OpenStreetMap. |
+
+### Staying within the ElevenLabs free tier
+
+The free ElevenLabs plan gives 10,000 credits a month. That's less than one tour with every highlight recorded, so by default the app:
+
+- uses the **Flash v2.5** voice, which costs half a credit per character (about 20 minutes of narration a month);
+- checks your live usage before each recording and caps it at 10,000 credits, even if your account allows more;
+- keeps the last 2,500 credits for the main one-minute stories (today's welcome and each stop), so short highlight clips switch to the iPhone voice first;
+- switches to the iPhone voice, still with background music, once the month's credits are used up, and tells you when they reset;
+- saves every recording on the phone, so replays and offline listening cost nothing. **Download audio for offline** fills the budget with main stories first.
+
+Settings shows the credits used this month. To use your whole plan with the richer Multilingual v2 voice, turn off **Stay within the free tier** in Settings (GitHub Pages) or set `ELEVENLABS_FREE_TIER=false` (server). Usage tracking needs an ElevenLabs key with the **User → Read** permission; unrestricted keys have it. Free-plan narration is for personal use and credits ElevenLabs, which the player shows.
 
 ## Put it on your iPhone
 

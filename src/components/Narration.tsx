@@ -1,6 +1,7 @@
 "use client";
 import { Headphones, Loader2, Pause, Play, RotateCcw, RotateCw } from "lucide-react";
 import { getPlayer, usePlayer, type Track } from "@/lib/audio/player";
+import { useConfig } from "@/lib/client/useConfig";
 import { INTRO_S, OUTRO_S } from "@/lib/audio/mixer";
 
 const fmt = (s: number) => {
@@ -52,6 +53,7 @@ export function PlayChip({ track, label }: { track: Track; label?: string }) {
 /** Big "podcast episode" card with progress bar and skip controls. */
 export function EpisodeCard({ track, kicker, className = "" }: { track: Track; kicker: string; className?: string }) {
   const state = usePlayer();
+  const config = useConfig();
   const current = state.track?.id === track.id;
   const status = current ? state.status : "idle";
   const duration = current && state.duration ? state.duration : estimateSeconds(track.narration.script);
@@ -66,7 +68,13 @@ export function EpisodeCard({ track, kicker, className = "" }: { track: Track; k
       </div>
       <div className="mt-1.5 font-display text-lg font-bold leading-snug">{track.narration.title || track.title}</div>
       <div className="mt-0.5 text-sm text-white/70">
-        {status === "loading" ? "Recording your guide…" : state.error && current ? state.error : `${track.subtitle} · ${fmt(duration)}`}
+        {status === "loading"
+          ? "Recording your guide…"
+          : current && state.error
+            ? state.error
+            : current && state.notice
+              ? state.notice
+              : `${track.subtitle} · ${fmt(duration)}`}
       </div>
       <div
         className="mt-4 h-1.5 cursor-pointer rounded-full bg-white/20"
@@ -103,6 +111,9 @@ export function EpisodeCard({ track, kicker, className = "" }: { track: Track; k
           <RotateCw className="size-6" />
         </button>
       </div>
+      {config?.tts === "elevenlabs" && !(current && state.mode === "speech") && (
+        <div className="mt-2 text-center text-[10px] text-white/50">Voice by ElevenLabs</div>
+      )}
     </div>
   );
 }

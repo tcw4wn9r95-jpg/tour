@@ -175,7 +175,7 @@ function StopScreen({ id, stopId }: { id: string; stopId: string }) {
                       </span>
                     </p>
                     <div className="mt-3">
-                      <PlayChip track={{ ...baseTrack, id: `${tour.id}:${f.id}`, title: f.title, narration: f.narration }} />
+                      <PlayChip track={{ ...baseTrack, id: `${tour.id}:${f.id}`, title: f.title, narration: f.narration, priority: "extra" }} />
                     </div>
                   </div>
                 </article>

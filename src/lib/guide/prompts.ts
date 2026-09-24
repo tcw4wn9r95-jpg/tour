@@ -66,7 +66,7 @@ export function detailsPrompt(input: DetailsInput): string {
     `The traveler's focus: ${input.focus.join(", ")}. Constraints: ${input.constraints || "none"}.`,
     `Today is ${input.weekday}.${arrive} and will spend about ${input.stop.durationMin} minutes here.`,
     "",
-    "Write the stop's guide page: overview, the 3-5 most interesting features (each with its own ~30-40 second narration), practical info for today, and a one-minute narration for the stop as a whole.",
+    "Write the stop's guide page: overview, the 3-5 most interesting features (each with its own short ~25 second narration), practical info for today, and a one-minute narration for the stop as a whole.",
   ].join("\n");
 }
 

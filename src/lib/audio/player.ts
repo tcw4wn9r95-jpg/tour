@@ -3,8 +3,9 @@
 // started from a tap, so `play()` does its unlocking synchronously and then
 // fetches / mixes the narration asynchronously.
 import { useSyncExternalStore } from "react";
-import { BASE, fetchSpeech, loadConfig, onConfigChange } from "../client/api";
+import { ApiError, BASE, fetchSpeech, loadConfig, onConfigChange } from "../client/api";
 import { getVoice, hashText, putVoice } from "../client/store";
+import type { VoicePriority } from "../guide/voice-budget";
 import type { Narration } from "../types";
 import { decodeVoice, encodeWav, renderEpisode } from "./mixer";
 import { scheduleMusic } from "./music";
@@ -16,6 +17,8 @@ export interface Track {
   narration: Narration;
   artwork?: string;
   href?: string;
+  /** "extra" clips (stop highlights) give way to the main stories when ElevenLabs credits run low. */
+  priority?: VoicePriority;
 }
 
 export type PlayerStatus = "idle" | "loading" | "playing" | "paused" | "ended" | "error";
@@ -27,6 +30,8 @@ export interface PlayerState {
   duration: number;
   mode: "audio" | "speech";
   error?: string;
+  /** Why the device voice is reading this clip (e.g. saving ElevenLabs credits). */
+  notice?: string;
 }
 
 // 50 ms of silence, used to unlock the <audio> element inside the tap handler.
@@ -106,7 +111,7 @@ class Player {
     this.stopSpeech();
     const audio = this.ensureAudio();
     const key = `${track.narration.mood}:${hashText(track.narration.script)}`;
-    this.set({ track, status: "loading", position: 0, duration: 0, error: undefined, mode: "audio" });
+    this.set({ track, status: "loading", position: 0, duration: 0, error: undefined, notice: undefined, mode: "audio" });
 
     if (this.ttsMode === "browser") {
       audio.pause();
@@ -136,9 +141,11 @@ class Player {
       },
       (err) => {
         if (token !== this.token) return;
-        console.warn("Narration audio unavailable, using the device voice", err);
+        const budget = err instanceof ApiError && err.code === "voice-budget";
+        if (!budget) console.warn("Narration audio unavailable, using the device voice", err);
         audio.pause();
         this.playSpeech(track);
+        if (budget) this.set({ notice: err.message });
       },
     );
   }
@@ -200,12 +207,7 @@ class Player {
 
   private async render(track: Track, key: string): Promise<string> {
     const mode = this.ttsMode ?? (await loadConfig().then((c) => c.tts, () => "server"));
-    const voiceKey = `${mode}:${hashText(track.narration.script)}`;
-    let mp3 = await getVoice(voiceKey);
-    if (!mp3) {
-      mp3 = await fetchSpeech(track.narration.script);
-      void putVoice(voiceKey, mp3);
-    }
+    const mp3 = await loadVoice(mode, track.narration.script, track.priority ?? "main");
     const voice = await decodeVoice(await mp3.arrayBuffer());
     const mixed = await renderEpisode(voice, track.narration.mood, parseInt(hashText(track.id), 16) || 1);
     const url = URL.createObjectURL(encodeWav(mixed));
@@ -335,16 +337,60 @@ export function usePlayer(): PlayerState {
   );
 }
 
-/** Downloads every narration's voice so the tour works offline. */
-export async function prefetchVoices(scripts: string[], onProgress: (done: number, total: number) => void): Promise<void> {
-  const cfg = await loadConfig();
-  if (cfg.tts === "browser") return;
-  let done = 0;
-  for (const script of scripts) {
-    const key = `${cfg.tts}:${hashText(script)}`;
-    if (!(await getVoice(key))) {
-      await putVoice(key, await fetchSpeech(script));
-    }
-    onProgress(++done, scripts.length);
+// Recorded narration is cached on the phone, so each script is paid for once;
+// simultaneous requests for the same script share one download.
+const inflight = new Map<string, Promise<Blob>>();
+
+async function loadVoice(mode: string, script: string, priority: VoicePriority): Promise<Blob> {
+  const key = `${mode}:${hashText(script)}`;
+  const cached = await getVoice(key);
+  if (cached) return cached;
+  let pending = inflight.get(key);
+  if (!pending) {
+    pending = fetchSpeech(script, priority)
+      .then((blob) => {
+        void putVoice(key, blob);
+        return blob;
+      })
+      .finally(() => inflight.delete(key));
+    inflight.set(key, pending);
   }
+  return pending;
+}
+
+export interface PrefetchResult {
+  saved: number;
+  /** Clips left for the device voice to keep ElevenLabs within budget. */
+  skipped: number;
+}
+
+/**
+ * Downloads narration so the tour works offline: main stories first, then
+ * highlights while the ElevenLabs budget allows.
+ */
+export async function prefetchVoices(
+  clips: { script: string; priority: VoicePriority }[],
+  onProgress: (done: number, total: number) => void,
+): Promise<PrefetchResult> {
+  const cfg = await loadConfig();
+  if (cfg.tts === "browser") return { saved: 0, skipped: 0 };
+  const ordered = [...clips].sort((a, b) => (a.priority === b.priority ? 0 : a.priority === "main" ? -1 : 1));
+  const result: PrefetchResult = { saved: 0, skipped: 0 };
+  let budgetGone = false;
+  for (const [i, clip] of ordered.entries()) {
+    if (budgetGone) {
+      result.skipped++;
+    } else {
+      try {
+        await loadVoice(cfg.tts, clip.script, clip.priority);
+        result.saved++;
+      } catch (err) {
+        if (!(err instanceof ApiError && err.code === "voice-budget")) throw err;
+        result.skipped++;
+        if (clip.priority === "main") budgetGone = true;
+      }
+    }
+    onProgress(i + 1, ordered.length);
+  }
+  return result;
 }

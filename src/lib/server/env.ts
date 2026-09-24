@@ -14,6 +14,7 @@ export function serverEnv(): GuideEnv {
     effort: parseEffort(process.env.TOUR_CLAUDE_EFFORT),
     tts: {
       elevenlabsKey: process.env.ELEVENLABS_API_KEY,
+      elevenlabsStayFree: process.env.ELEVENLABS_FREE_TIER !== "false",
       elevenlabsVoice: process.env.ELEVENLABS_VOICE_ID,
       elevenlabsModel: process.env.ELEVENLABS_MODEL,
       openaiKey: process.env.OPENAI_API_KEY,

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "TZ=UTC node --test --experimental-strip-types --no-warnings src/lib/*.test.ts",
+    "test": "TZ=UTC node --test --experimental-strip-types --no-warnings src/lib/*.test.ts src/lib/guide/*.test.ts",
     "mock": "node --experimental-strip-types --no-warnings scripts/mock-anthropic.mts",
     "build:pages": "NEXT_PUBLIC_STATIC_EXPORT=1 next build"
   },

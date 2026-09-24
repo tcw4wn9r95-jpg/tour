@@ -5,6 +5,7 @@
 import type { DetailsInput, TodayInput } from "../guide/prompts";
 import type { RestaurantsRequest } from "../guide/restaurants";
 import type { PlanProgress } from "../guide/service";
+import type { VoicePriority, VoiceUsage } from "../guide/voice-budget";
 import type { StopDetailsOutput } from "../schemas";
 import type { AppConfig, MealRecommendation, Narration, RawPlan, TourRequest } from "../types";
 
@@ -78,8 +79,8 @@ async function onDevice<T>(
   try {
     return await run(deviceEnv(), guide);
   } catch (err) {
-    const { message, status } = describeError(err);
-    throw new ApiError(message, status);
+    const { message, status, code } = describeError(err);
+    throw new ApiError(message, status, code);
   }
 }
 
@@ -161,15 +162,23 @@ export const fetchTodayIntro = (body: TodayInput, signal?: AbortSignal): Promise
 export const fetchRestaurants = (body: RestaurantsRequest, signal?: AbortSignal): Promise<MealRecommendation[]> =>
   IS_STATIC ? onDevice((env, guide) => guide.findRestaurants(env, body)) : post("/api/restaurants", body, signal);
 
-export async function fetchSpeech(text: string, signal?: AbortSignal): Promise<Blob> {
+/** MP3 narration. Throws ApiError code "voice-budget" when ElevenLabs credits must be saved. */
+export async function fetchSpeech(text: string, priority: VoicePriority, signal?: AbortSignal): Promise<Blob> {
   if (IS_STATIC) {
-    const mp3 = await onDevice((env, guide) => guide.speak(env, text, signal));
+    const mp3 = await onDevice((env, guide) => guide.speak(env, text, priority, signal));
     return new Blob([mp3], { type: "audio/mpeg" });
   }
-  const res = await fetch(`${BASE}/api/tts`, { method: "POST", headers: headers(), body: JSON.stringify({ text }), signal });
+  const res = await fetch(`${BASE}/api/tts`, { method: "POST", headers: headers(), body: JSON.stringify({ text, priority }), signal });
   if (!res.ok) {
     const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
     throw new ApiError(data.error ?? "Voice unavailable", res.status, data.code);
   }
   return res.blob();
+}
+
+/** ElevenLabs credits used this month vs. the app's budget (null when not using ElevenLabs). */
+export async function fetchVoiceUsage(): Promise<VoiceUsage | null> {
+  if (IS_STATIC) return onDevice((env, guide) => guide.voiceUsage(env));
+  const res = await fetch(`${BASE}/api/voice-usage`, { headers: headers(), cache: "no-store" });
+  return res.ok ? ((await res.json()) as VoiceUsage | null) : null;
 }

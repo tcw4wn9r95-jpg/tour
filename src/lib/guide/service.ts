@@ -9,6 +9,7 @@ import { ttsProvider, type GuideEnv } from "./env";
 import { DETAILS_SYSTEM, detailsPrompt, PLAN_SYSTEM, planPrompt, TODAY_SYSTEM, todayPrompt, type DetailsInput, type TodayInput } from "./prompts";
 import { googleRestaurants, knowledgeRestaurants, webRestaurants, type RestaurantsRequest } from "./restaurants";
 import { synthesize } from "./tts";
+import { readUsage, type VoicePriority, type VoiceUsage } from "./voice-budget";
 
 export type PlanProgress = { type: "status"; message: string } | { type: "stop"; name: string };
 
@@ -95,8 +96,14 @@ export async function findRestaurants(env: GuideEnv, input: RestaurantsRequest):
   }
 }
 
-/** MP3 narration from the configured voice service. */
-export async function speak(env: GuideEnv, text: string, signal?: AbortSignal): Promise<ArrayBuffer> {
-  if (ttsProvider(env.tts) === "browser") throw new GuideError("No voice service configured", 501);
-  return synthesize(env.tts, text, signal);
+/** MP3 narration from the configured voice service, within the ElevenLabs budget. */
+export async function speak(env: GuideEnv, text: string, priority: VoicePriority, signal?: AbortSignal): Promise<ArrayBuffer> {
+  if (ttsProvider(env.tts) === "browser") throw new GuideError("No voice service configured", 501, "browser-tts");
+  return synthesize(env.tts, text, priority, signal);
+}
+
+/** ElevenLabs credits used this month vs. the app's budget; null if not using ElevenLabs or unreadable. */
+export async function voiceUsage(env: GuideEnv): Promise<VoiceUsage | null> {
+  if (ttsProvider(env.tts) !== "elevenlabs") return null;
+  return readUsage(env.tts.elevenlabsKey!, env.tts.elevenlabsStayFree !== false, true);
 }
