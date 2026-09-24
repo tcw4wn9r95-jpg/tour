@@ -3,7 +3,7 @@
 // started from a tap, so `play()` does its unlocking synchronously and then
 // fetches / mixes the narration asynchronously.
 import { useSyncExternalStore } from "react";
-import { fetchSpeech, loadConfig } from "../client/api";
+import { BASE, fetchSpeech, loadConfig, onConfigChange } from "../client/api";
 import { getVoice, hashText, putVoice } from "../client/store";
 import type { Narration } from "../types";
 import { decodeVoice, encodeWav, renderEpisode } from "./mixer";
@@ -47,9 +47,8 @@ class Player {
 
   constructor() {
     if (typeof window === "undefined") return;
-    loadConfig()
-      .then((c) => (this.ttsMode = c.tts))
-      .catch(() => {});
+    onConfigChange((c) => (this.ttsMode = c.tts));
+    loadConfig().catch(() => {});
     window.speechSynthesis?.getVoices();
   }
 
@@ -228,7 +227,7 @@ class Player {
       title: track.title,
       artist: "Your tour guide",
       album: track.subtitle,
-      artwork: track.artwork ? [{ src: track.artwork, sizes: "512x512" }] : [{ src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" }],
+      artwork: track.artwork ? [{ src: track.artwork, sizes: "512x512" }] : [{ src: `${BASE}/icons/icon-512.png`, sizes: "512x512", type: "image/png" }],
     });
   }
 

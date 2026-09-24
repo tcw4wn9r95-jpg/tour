@@ -1,10 +1,10 @@
-import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { haversine } from "../geo.ts";
 import { RestaurantPickSchema } from "../schemas";
 import type { MealKind, MealRecommendation, Restaurant } from "../types";
-import { claude, DEFAULT_EFFORT, generateStructured, GuideError, MODEL, withFallbacks } from "./claude";
+import { generateStructured, GuideError, withFallbacks } from "./claude";
+import type { GuideEnv } from "./env";
 import { RESTAURANT_SYSTEM } from "./prompts";
 
 export interface MealQuery {
@@ -112,7 +112,8 @@ function weightedRating(rating: number, count: number): number {
   return (count / (count + m)) * rating + (m / (count + m)) * prior;
 }
 
-async function googleSlot(req: RestaurantsRequest, slot: MealQuery, key: string): Promise<MealRecommendation> {
+async function googleSlot(env: GuideEnv, req: RestaurantsRequest, slot: MealQuery): Promise<MealRecommendation> {
+  const key = env.googlePlacesKey!;
   const res = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
     method: "POST",
     headers: { "content-type": "application/json", "X-Goog-Api-Key": key, "X-Goog-FieldMask": FIELDS },
@@ -151,16 +152,15 @@ async function googleSlot(req: RestaurantsRequest, slot: MealQuery, key: string)
       distanceM: lat != null && lng != null ? Math.round(haversine(slot, { lat, lng })) : null,
       why: p.editorialSummary?.text ?? "",
       mapsUrl: p.googleMapsUri ?? "",
-      photoUrl: p.photos?.[0] ? `/api/place-photo?name=${encodeURIComponent(p.photos[0].name)}` : undefined,
+      photoUrl: p.photos?.[0] ? env.placePhotoUrl(p.photos[0].name) : undefined,
       openNow: open,
     };
   });
   return { slotId: slot.slotId, kind: slot.kind, restaurants, source: "google" };
 }
 
-export async function googleRestaurants(req: RestaurantsRequest): Promise<MealRecommendation[]> {
-  const key = process.env.GOOGLE_PLACES_API_KEY!;
-  return Promise.all(req.slots.map((slot) => googleSlot(req, slot, key)));
+export async function googleRestaurants(env: GuideEnv, req: RestaurantsRequest): Promise<MealRecommendation[]> {
+  return Promise.all(req.slots.map((slot) => googleSlot(env, req, slot)));
 }
 
 // ---------------------------------------------------------------------------
@@ -174,7 +174,7 @@ const slotLines = (req: RestaurantsRequest) =>
 
 const pickFormat = betaZodOutputFormat(RestaurantPickSchema);
 
-export async function webRestaurants(req: RestaurantsRequest): Promise<MealRecommendation[]> {
+export async function webRestaurants(env: GuideEnv, req: RestaurantsRequest): Promise<MealRecommendation[]> {
   const submitTool: Anthropic.Beta.Messages.BetaTool = {
     name: "submit_restaurants",
     description: "Submit the final restaurant picks for every meal slot. Call once, after researching.",
@@ -197,11 +197,12 @@ export async function webRestaurants(req: RestaurantsRequest): Promise<MealRecom
 
   for (let turn = 0; turn < 6; turn++) {
     const message = await withFallbacks(
+      env,
       {
-        model: MODEL,
+        model: env.model,
         max_tokens: 16000,
         thinking: { type: "adaptive" },
-        output_config: { effort: DEFAULT_EFFORT },
+        output_config: { effort: env.effort },
         system: RESTAURANT_SYSTEM,
         tools: [
           { type: "web_search_20260209", name: "web_search", max_uses: 8, user_location: { type: "approximate", city: req.city, timezone: req.timeZone } },
@@ -209,7 +210,7 @@ export async function webRestaurants(req: RestaurantsRequest): Promise<MealRecom
         ],
         messages,
       },
-      (p) => claude().beta.messages.stream(p).finalMessage(),
+      (client, p) => client.beta.messages.stream(p).finalMessage(),
     );
 
     if (message.stop_reason === "refusal") throw new GuideError("Claude couldn't research restaurants for this route.", 422);
@@ -235,8 +236,8 @@ export async function webRestaurants(req: RestaurantsRequest): Promise<MealRecom
 }
 
 /** Last resort when web search isn't enabled for the API key's organization. */
-export async function knowledgeRestaurants(req: RestaurantsRequest): Promise<MealRecommendation[]> {
-  const data = await generateStructured(RestaurantPickSchema, {
+export async function knowledgeRestaurants(env: GuideEnv, req: RestaurantsRequest): Promise<MealRecommendation[]> {
+  const data = await generateStructured(env, RestaurantPickSchema, {
     system:
       "You recommend long-established, highly rated places to eat near a point on a traveler's route, from your own knowledge. " +
       "Only suggest places you are confident exist and are well reviewed; give ratings only if you know them, else null.",

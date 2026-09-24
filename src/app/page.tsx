@@ -1,5 +1,5 @@
 "use client";
-import { ChevronRight, Compass, MapPinned, MoreHorizontal, Plus, Sparkles, Trash2 } from "lucide-react";
+import { ChevronRight, Compass, MapPinned, MoreHorizontal, Plus, Settings, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Photo } from "@/components/Photo";
@@ -7,6 +7,7 @@ import { deleteTour, useTours } from "@/lib/client/store";
 import { useConfig } from "@/lib/client/useConfig";
 import { formatClock, formatDistance } from "@/lib/geo";
 import { FOCUS_EMOJI, FOCUS_LABEL, shortDate } from "@/lib/labels";
+import { tourHref } from "@/lib/links";
 import type { Tour } from "@/lib/types";
 
 interface CityGroup {
@@ -39,20 +40,34 @@ export default function Home() {
 
   return (
     <main className="pt-safe mx-auto min-h-dvh max-w-xl pb-40">
-      <header className="px-5 pt-6">
-        <p className="h-5 text-[13px] font-semibold uppercase tracking-wide text-muted">{today}</p>
-        <h1 className="font-display text-[34px] font-bold leading-tight tracking-tight">My Tours</h1>
+      <header className="flex items-end justify-between px-5 pt-6">
+        <div>
+          <p className="h-5 text-[13px] font-semibold uppercase tracking-wide text-muted">{today}</p>
+          <h1 className="font-display text-[34px] font-bold leading-tight tracking-tight">My Tours</h1>
+        </div>
+        <Link href="/settings" aria-label="Settings" className="mb-1.5 flex size-10 items-center justify-center rounded-full bg-card text-muted active:opacity-70">
+          <Settings className="size-5" />
+        </Link>
       </header>
 
-      {config?.demo && (
-        <div className="mx-4 mt-4 flex gap-3 rounded-2xl bg-accent-soft p-4 text-sm">
-          <Sparkles className="mt-0.5 size-5 shrink-0 text-accent" />
-          <p>
-            <b>Demo mode.</b> Add an <code className="rounded bg-card px-1">ANTHROPIC_API_KEY</code> on the server to have Claude plan real tours.
-            Until then you&apos;ll get a sample Lisbon day.
-          </p>
-        </div>
-      )}
+      {config?.demo &&
+        (config.keysOnDevice ? (
+          <Link href="/settings" className="mx-4 mt-4 flex gap-3 rounded-2xl bg-accent-soft p-4 text-sm active:opacity-80">
+            <Sparkles className="mt-0.5 size-5 shrink-0 text-accent" />
+            <p>
+              <b>Add your Anthropic API key</b> in Settings to have Claude plan real tours. Until then you&apos;ll get a sample Lisbon day.{" "}
+              <span className="font-semibold text-accent">Open Settings ›</span>
+            </p>
+          </Link>
+        ) : (
+          <div className="mx-4 mt-4 flex gap-3 rounded-2xl bg-accent-soft p-4 text-sm">
+            <Sparkles className="mt-0.5 size-5 shrink-0 text-accent" />
+            <p>
+              <b>Demo mode.</b> Add an <code className="rounded bg-card px-1">ANTHROPIC_API_KEY</code> on the server to have Claude plan real tours.
+              Until then you&apos;ll get a sample Lisbon day.
+            </p>
+          </div>
+        ))}
 
       {tours === null ? (
         <div className="mx-4 mt-6 space-y-4">
@@ -101,7 +116,7 @@ function TourCard({ tour }: { tour: Tour }) {
   const [menu, setMenu] = useState(false);
   return (
     <div className="relative overflow-hidden rounded-3xl bg-card shadow-sm">
-      <Link href={`/tour/${tour.id}`} className="block active:opacity-90">
+      <Link href={tourHref(tour.id)} className="block active:opacity-90">
         <div className="relative h-44">
           <Photo photo={tour.coverPhoto} category={tour.stops[0]?.category} alt={tour.title} className="h-full w-full" hideIcon />
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />

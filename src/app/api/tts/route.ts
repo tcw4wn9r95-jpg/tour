@@ -1,6 +1,8 @@
 import { z } from "zod/v4";
 import { rejectWithoutPasscode } from "@/lib/server/auth";
-import { synthesize, ttsProvider } from "@/lib/server/tts";
+import { ttsProvider } from "@/lib/guide/env";
+import { speak } from "@/lib/guide/service";
+import { serverEnv } from "@/lib/server/env";
 import { readJson } from "@/lib/server/validate";
 
 export const runtime = "nodejs";
@@ -14,11 +16,12 @@ export async function POST(req: Request) {
   const input = await readJson(req, Input);
   if (input instanceof Response) return input;
 
-  if (ttsProvider() === "browser") {
+  const env = serverEnv();
+  if (ttsProvider(env.tts) === "browser") {
     return Response.json({ error: "No server voice configured", code: "browser-tts" }, { status: 501 });
   }
   try {
-    const audio = await synthesize(input.text, req.signal);
+    const audio = await speak(env, input.text, req.signal);
     return new Response(audio, {
       headers: { "content-type": "audio/mpeg", "cache-control": "private, max-age=31536000, immutable" },
     });

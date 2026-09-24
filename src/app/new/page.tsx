@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, requestPlan } from "@/lib/client/api";
 import { buildTour, ensureTourContent, reverseGeocode } from "@/lib/client/enrich";
 import { FOCUS_EMOJI, FOCUS_LABEL } from "@/lib/labels";
+import { tourHref } from "@/lib/links";
 import { greeting, localMoment, timeSuggestions } from "@/lib/time";
 import type { Focus, LatLng, LongLegMode, TourRequest } from "@/lib/types";
 
@@ -154,7 +155,7 @@ export default function NewTour() {
       setTyping(false);
       say("Your tour is ready! Opening it now… 🎒");
       void ensureTourContent(tour.id);
-      setTimeout(() => router.replace(`/tour/${tour.id}`), 600);
+      setTimeout(() => router.replace(tourHref(tour.id)), 600);
     } catch (err) {
       setTyping(false);
       const msg = err instanceof ApiError ? err.message : "I lost the connection while planning.";

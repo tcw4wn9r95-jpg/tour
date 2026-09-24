@@ -34,6 +34,16 @@ http
     let body = "";
     for await (const c of req) body += c;
     if (req.url === "/__log") return res.end(JSON.stringify(log, null, 1));
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "GET,POST" });
+      return res.end();
+    }
+    res.setHeader("access-control-allow-origin", "*");
+    if (req.method === "GET" && req.url?.startsWith("/v1/models/")) {
+      const id = decodeURIComponent(req.url.slice("/v1/models/".length));
+      res.writeHead(200, { "content-type": "application/json" });
+      return res.end(JSON.stringify({ type: "model", id, display_name: id, created_at: "2026-01-01T00:00:00Z" }));
+    }
     const json = JSON.parse(body || "{}");
     const system = typeof json.system === "string" ? json.system : JSON.stringify(json.system);
     log.push({ url: req.url, beta: req.headers["anthropic-beta"], model: json.model, thinking: json.thinking, output_config: json.output_config && { effort: json.output_config.effort, format: json.output_config.format?.type }, fallbacks: json.fallbacks, tools: json.tools?.map((t: { name: string; type?: string }) => t.type ?? t.name), stream: json.stream, system: system.slice(0, 60) });

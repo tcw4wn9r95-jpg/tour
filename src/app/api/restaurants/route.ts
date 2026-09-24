@@ -1,9 +1,8 @@
 import { z } from "zod/v4";
-import { demoRestaurants } from "@/lib/demo";
+import { describeError } from "@/lib/guide/claude";
+import { findRestaurants } from "@/lib/guide/service";
 import { rejectWithoutPasscode } from "@/lib/server/auth";
-import Anthropic from "@anthropic-ai/sdk";
-import { describeError, hasClaude } from "@/lib/server/claude";
-import { googleRestaurants, knowledgeRestaurants, webRestaurants } from "@/lib/server/restaurants";
+import { serverEnv } from "@/lib/server/env";
 import { readJson } from "@/lib/server/validate";
 
 export const runtime = "nodejs";
@@ -35,27 +34,8 @@ export async function POST(req: Request) {
   if (denied) return denied;
   const input = await readJson(req, Input);
   if (input instanceof Response) return input;
-  if (input.slots.length === 0) return Response.json([]);
-
   try {
-    if (process.env.GOOGLE_PLACES_API_KEY) {
-      try {
-        return Response.json(await googleRestaurants(input));
-      } catch (err) {
-        // Fall through to web research if Places is misconfigured.
-        console.error("Google Places failed", err);
-        if (!hasClaude()) throw err;
-      }
-    }
-    if (!hasClaude()) return Response.json(demoRestaurants(input.slots));
-    try {
-      return Response.json(await webRestaurants(input));
-    } catch (err) {
-      // e.g. web search not enabled for this organization
-      if (!(err instanceof Anthropic.BadRequestError || err instanceof Anthropic.PermissionDeniedError)) throw err;
-      console.warn("Web search unavailable, using Claude's own knowledge", err.message);
-      return Response.json(await knowledgeRestaurants(input));
-    }
+    return Response.json(await findRestaurants(serverEnv(), input));
   } catch (err) {
     const { message, status } = describeError(err);
     return Response.json({ error: message }, { status });

@@ -1,9 +1,8 @@
 import { z } from "zod/v4";
-import { demoTodayIntro } from "@/lib/demo";
-import { TodayIntroSchema } from "@/lib/schemas";
+import { describeError } from "@/lib/guide/claude";
+import { todayIntro } from "@/lib/guide/service";
 import { rejectWithoutPasscode } from "@/lib/server/auth";
-import { describeError, generateStructured, hasClaude } from "@/lib/server/claude";
-import { TODAY_SYSTEM, todayPrompt } from "@/lib/server/prompts";
+import { serverEnv } from "@/lib/server/env";
 import { readJson } from "@/lib/server/validate";
 
 export const runtime = "nodejs";
@@ -27,15 +26,8 @@ export async function POST(req: Request) {
   const input = await readJson(req, Input);
   if (input instanceof Response) return input;
 
-  if (!hasClaude()) return Response.json(demoTodayIntro(input.stopNames));
   try {
-    const narration = await generateStructured(TodayIntroSchema, {
-      system: TODAY_SYSTEM,
-      prompt: todayPrompt(input),
-      maxTokens: 16000,
-      signal: req.signal,
-    });
-    return Response.json(narration);
+    return Response.json(await todayIntro(serverEnv(), input, req.signal));
   } catch (err) {
     const { message, status } = describeError(err);
     return Response.json({ error: message }, { status });

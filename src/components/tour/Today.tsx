@@ -7,6 +7,7 @@ import { ensureRestaurants, ensureTodayIntro, useTourTasks } from "@/lib/client/
 import { updateTour } from "@/lib/client/store";
 import { formatClock } from "@/lib/geo";
 import { CATEGORY_LABEL } from "@/lib/labels";
+import { stopHref, tourHref } from "@/lib/links";
 import type { Stop, Tour } from "@/lib/types";
 import { LegRow } from "./LegRow";
 import { MealBreak } from "./Restaurants";
@@ -55,7 +56,7 @@ export function Today({ tour }: { tour: Tour }) {
               subtitle: tour.title,
               narration: tour.todayIntro,
               artwork: tour.coverPhoto?.url,
-              href: `/tour/${tour.id}#today`,
+              href: tourHref(tour.id, "today"),
             }}
           />
         ) : (
@@ -116,7 +117,7 @@ export function Today({ tour }: { tour: Tour }) {
 }
 
 function StopCard({ tour, stop, index }: { tour: Tour; stop: Stop; index: number }) {
-  const href = `/tour/${tour.id}/stop/${stop.id}`;
+  const href = stopHref(tour.id, stop.id);
   const toggleVisited = () =>
     void updateTour(tour.id, (t) => ({ ...t, stops: t.stops.map((s) => (s.id === stop.id ? { ...s, visited: !s.visited } : s)) }));
 

@@ -196,5 +196,7 @@ export interface AppConfig {
   tts: "elevenlabs" | "openai" | "browser";
   restaurants: "google" | "web" | "demo";
   passcodeRequired: boolean;
+  /** GitHub Pages build: API keys are entered in Settings and kept on this device. */
+  keysOnDevice: boolean;
   model: string;
 }

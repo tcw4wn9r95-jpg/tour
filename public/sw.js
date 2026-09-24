@@ -1,13 +1,15 @@
 // Offline support: app shell + map tiles + photos are cached as you use them,
 // so a tour you've opened keeps working with a weak connection.
-const VERSION = "v1";
+const VERSION = "v2";
 const SHELL = `shell-${VERSION}`;
 const RUNTIME = `runtime-${VERSION}`;
 const MAX_RUNTIME = 600;
+// "/" when hosted at a domain root, "/tour/" on GitHub Pages.
+const BASE = new URL(self.registration.scope).pathname;
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
-  event.waitUntil(caches.open(SHELL).then((c) => c.addAll(["/", "/manifest.webmanifest", "/icons/icon-192.png"]).catch(() => {})));
+  event.waitUntil(caches.open(SHELL).then((c) => c.addAll([BASE, `${BASE}manifest.webmanifest`, `${BASE}icons/icon-192.png`]).catch(() => {})));
 });
 
 self.addEventListener("activate", (event) => {
@@ -40,12 +42,14 @@ async function staleWhileRevalidate(request) {
 
 async function networkFirst(request) {
   const cache = await caches.open(SHELL);
+  // Pages read the tour id from the query string, so one copy per page is enough.
+  const key = request.url.split(/[?#]/)[0];
   try {
     const res = await fetch(request);
-    if (res.ok) cache.put(request, res.clone());
+    if (res.ok) cache.put(key, res.clone());
     return res;
   } catch {
-    return (await cache.match(request)) || (await cache.match("/")) || Response.error();
+    return (await cache.match(request, { ignoreSearch: true })) || (await cache.match(BASE)) || Response.error();
   }
 }
 
@@ -55,9 +59,9 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
 
   if (url.origin === self.location.origin) {
-    if (url.pathname.startsWith("/api/")) return;
+    if (url.pathname.startsWith(`${BASE}api/`)) return;
     if (request.mode === "navigate") return event.respondWith(networkFirst(request));
-    if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/")) {
+    if (url.pathname.startsWith(`${BASE}_next/static/`) || url.pathname.startsWith(`${BASE}icons/`)) {
       return event.respondWith(staleWhileRevalidate(request));
     }
     return;

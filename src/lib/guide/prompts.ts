@@ -1,4 +1,3 @@
-import "server-only";
 import type { TourRequest } from "../types";
 
 const FOCUS_TEXT: Record<string, string> = {
@@ -88,6 +87,7 @@ export interface TodayInput {
   timeAvailable: string;
   weekday: string;
   itinerary: string[];
+  stopNames: string[];
 }
 
 export function todayPrompt(input: TodayInput): string {

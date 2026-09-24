@@ -11,7 +11,7 @@ export function MiniPlayer() {
   if (!state.track || state.status === "idle") return null;
   const player = getPlayer();
   const pct = state.duration ? Math.min(100, (state.position / state.duration) * 100) : 0;
-  const onTourPage = pathname?.startsWith("/tour/") && !pathname.includes("/stop/");
+  const onTourPage = pathname?.replace(/\/$/, "") === "/tour";
   const bottom = onTourPage ? "calc(env(safe-area-inset-bottom) + 64px)" : "calc(env(safe-area-inset-bottom) + 12px)";
 
   return (

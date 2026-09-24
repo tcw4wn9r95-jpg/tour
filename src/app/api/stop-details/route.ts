@@ -1,9 +1,8 @@
 import { z } from "zod/v4";
-import { demoDetails } from "@/lib/demo";
-import { StopDetailsSchema } from "@/lib/schemas";
+import { describeError } from "@/lib/guide/claude";
+import { stopDetails } from "@/lib/guide/service";
 import { rejectWithoutPasscode } from "@/lib/server/auth";
-import { describeError, generateStructured, hasClaude } from "@/lib/server/claude";
-import { DETAILS_SYSTEM, detailsPrompt } from "@/lib/server/prompts";
+import { serverEnv } from "@/lib/server/env";
 import { readJson } from "@/lib/server/validate";
 
 export const runtime = "nodejs";
@@ -30,14 +29,8 @@ export async function POST(req: Request) {
   const input = await readJson(req, Input);
   if (input instanceof Response) return input;
 
-  if (!hasClaude()) return Response.json(demoDetails(input.stop.name));
   try {
-    const details = await generateStructured(StopDetailsSchema, {
-      system: DETAILS_SYSTEM,
-      prompt: detailsPrompt(input),
-      signal: req.signal,
-    });
-    return Response.json(details);
+    return Response.json(await stopDetails(serverEnv(), input, req.signal));
   } catch (err) {
     const { message, status } = describeError(err);
     return Response.json({ error: message }, { status });

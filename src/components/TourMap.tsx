@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Circle, MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
 import { formatClock, formatDistance, formatDuration, MODE_LABEL } from "@/lib/geo";
+import { stopHref } from "@/lib/links";
 import type { LatLng, LegMode, Tour } from "@/lib/types";
 
 // OpenStreetMap's own tiles need no key (fine for personal use). Set
@@ -162,7 +163,7 @@ export default function TourMap({ tour, className = "", focusStopId }: { tour: T
                   {i + 1}. {s.name}
                 </div>
                 {s.arriveAt && <div style={{ color: "#6c6c76", margin: "2px 0 6px" }}>{formatClock(s.arriveAt)} · {s.durationMin} min</div>}
-                <Link href={`/tour/${tour.id}/stop/${s.id}`} style={{ color: "#f0532d", fontWeight: 600 }}>
+                <Link href={stopHref(tour.id, s.id)} style={{ color: "#f0532d", fontWeight: 600 }}>
                   Open guide →
                 </Link>
               </div>

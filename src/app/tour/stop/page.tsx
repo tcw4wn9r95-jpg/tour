@@ -1,18 +1,43 @@
 "use client";
 import { BookOpen, Check, ChevronLeft, ChevronRight, Clock, Eye, Loader2, Navigation, RefreshCw, Sparkles, Ticket, Lightbulb } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { EpisodeCard, PlayChip } from "@/components/Narration";
 import { Photo } from "@/components/Photo";
 import { ensureStopDetails, useTourTasks } from "@/lib/client/enrich";
 import { updateTour, useTour } from "@/lib/client/store";
 import { appleDirectionsUrl, formatClock, formatDistance, formatDuration, MODE_LABEL } from "@/lib/geo";
 import { CATEGORY_LABEL } from "@/lib/labels";
+import { stopHref, tourHref } from "@/lib/links";
 import type { Photo as PhotoT } from "@/lib/types";
 
 export default function StopPage() {
-  const { id, stopId } = useParams<{ id: string; stopId: string }>();
+  // useSearchParams needs a Suspense boundary so the page can be prerendered.
+  return (
+    <Suspense fallback={<Spinner />}>
+      <StopRoute />
+    </Suspense>
+  );
+}
+
+function Spinner() {
+  return (
+    <div className="flex min-h-dvh items-center justify-center">
+      <Loader2 className="size-8 animate-spin text-muted" />
+    </div>
+  );
+}
+
+function StopRoute() {
+  const params = useSearchParams();
+  const id = params.get("id") ?? "";
+  const stopId = params.get("stop") ?? "";
+  // Remount per stop so the gallery and scroll position reset on prev/next.
+  return <StopScreen key={`${id}:${stopId}`} id={id} stopId={stopId} />;
+}
+
+function StopScreen({ id, stopId }: { id: string; stopId: string }) {
   const tour = useTour(id);
   const tasks = useTourTasks(id);
 
@@ -20,20 +45,14 @@ export default function StopPage() {
     if (id && stopId) void ensureStopDetails(id, stopId);
   }, [id, stopId]);
 
-  if (tour === undefined) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-muted" />
-      </div>
-    );
-  }
+  if (tour === undefined) return <Spinner />;
   const index = tour?.stops.findIndex((s) => s.id === stopId) ?? -1;
   const stop = index >= 0 ? tour!.stops[index] : undefined;
   if (!tour || !stop) {
     return (
       <div className="pt-safe flex min-h-dvh flex-col items-center justify-center gap-3">
         <p className="font-semibold">Stop not found.</p>
-        <Link href={tour ? `/tour/${tour.id}` : "/"} className="text-accent">
+        <Link href={tour ? tourHref(tour.id) : "/"} className="text-accent">
           Back
         </Link>
       </div>
@@ -48,14 +67,14 @@ export default function StopPage() {
   const legOut = next ? tour.legs.find((l) => l.toId === next.id) : undefined;
   const prev = tour.stops[index - 1];
   const photos = [stop.photo, ...(d?.gallery ?? []).filter((p) => p.url !== stop.photo?.url)].filter(Boolean) as PhotoT[];
-  const baseTrack = { subtitle: `Stop ${index + 1} · ${stop.name}`, artwork: stop.photo?.url, href: `/tour/${tour.id}/stop/${stop.id}` };
+  const baseTrack = { subtitle: `Stop ${index + 1} · ${stop.name}`, artwork: stop.photo?.url, href: stopHref(tour.id, stop.id) };
 
   return (
     <main className="mx-auto min-h-dvh max-w-xl" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 110px)" }}>
       <Gallery photos={photos} alt={stop.name} category={stop.category} />
       <div className="pt-safe fixed left-0 top-0 z-[1050] px-3 pt-3">
         <Link
-          href={`/tour/${tour.id}#today`}
+          href={tourHref(tour.id, "today")}
           aria-label="Back to tour"
           className="mt-2 flex size-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur"
         >
@@ -183,7 +202,7 @@ export default function StopPage() {
 
       <nav className="mx-4 mt-6 grid grid-cols-2 gap-3">
         {prev ? (
-          <Link href={`/tour/${tour.id}/stop/${prev.id}`} className="rounded-2xl bg-card p-3 active:opacity-80">
+          <Link href={stopHref(tour.id, prev.id)} className="rounded-2xl bg-card p-3 active:opacity-80">
             <div className="flex items-center text-xs text-muted">
               <ChevronLeft className="size-4" /> Previous
             </div>
@@ -193,7 +212,7 @@ export default function StopPage() {
           <span />
         )}
         {next && (
-          <Link href={`/tour/${tour.id}/stop/${next.id}`} className="rounded-2xl bg-card p-3 text-right active:opacity-80">
+          <Link href={stopHref(tour.id, next.id)} className="rounded-2xl bg-card p-3 text-right active:opacity-80">
             <div className="flex items-center justify-end text-xs text-muted">
               Next{legOut ? ` · ${formatDuration(legOut.durationMin)} ${legOut.mode === "walk" ? "walk" : MODE_LABEL[legOut.mode].toLowerCase()} · ${formatDistance(legOut.distanceM)}` : ""}
               <ChevronRight className="size-4" />

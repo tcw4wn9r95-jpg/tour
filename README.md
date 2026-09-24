@@ -21,6 +21,8 @@ Without an `ANTHROPIC_API_KEY` the app runs in **demo mode** with a sample Lisbo
 
 ### Keys
 
+On a server these are environment variables. In the GitHub Pages version you paste the same keys into the app's Settings screen instead.
+
 | Variable | Needed? | What it does |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | **Yes** | Claude plans the tour, writes each stop's guide and narration, and researches restaurants with web search. |
@@ -32,15 +34,29 @@ Without an `ANTHROPIC_API_KEY` the app runs in **demo mode** with a sample Lisbo
 
 ## Put it on your iPhone
 
-1. Deploy it anywhere that runs Next.js over HTTPS (the iPhone only shares your location with HTTPS sites). The easiest option is [Vercel](https://vercel.com/new): import this repo and add the environment variables above.
-2. Open the URL in **Safari** → **Share** → **Add to Home Screen**.
-3. Launch it from the Home Screen and allow location access.
+There are two ways to host it. Either way it needs HTTPS, because the iPhone only shares your location with secure sites.
 
-Tip: in a tour's **•••** menu, choose **Download audio for offline** before heading out if you expect weak signal.
+### Option A: GitHub Pages (free, no server)
+
+1. In this repo on GitHub, open **Settings → Pages** and set **Build and deployment → Source** to **GitHub Actions**.
+2. Merge this branch into `main` (or run the **Deploy to GitHub Pages** workflow from the Actions tab). The workflow builds a static copy of the app and publishes it at `https://<your-user>.github.io/<repo>/`.
+3. Open that address in **Safari** → **Share** → **Add to Home Screen**, then launch it from the Home Screen.
+4. Tap the ⚙️ button and paste your keys (Anthropic is required, the others are optional). The app checks the Anthropic key before saving it.
+
+GitHub Pages only serves static files, so in this version the app calls Anthropic, ElevenLabs/OpenAI and Google directly from your phone. Your keys are stored only in that phone's browser storage and are never added to the repo or the website. Anyone who uses that phone's browser can use them, so set a monthly spending limit in each provider's console. For Google, restrict the key to your `github.io` address.
+
+### Option B: a Node.js host (e.g. Vercel)
+
+1. Import this repo at [vercel.com/new](https://vercel.com/new) and add the environment variables from the table above.
+2. Open the URL in **Safari** → **Share** → **Add to Home Screen**.
+
+Here the keys live on the server and never reach the phone. Set `APP_PASSCODE` so only you can use the deployment.
+
+Tip: in either version, choose **Download audio for offline** from a tour's **•••** menu before heading out if you expect weak signal.
 
 ## How it works
 
-- `src/app/api/*`: server routes. They keep your API keys off the phone, call Claude with schema-validated JSON output, and stream progress while the plan is written.
+- `src/lib/guide/*`: the guide itself. Claude prompts with schema-validated JSON output, restaurant research, and the voice services. On a server, the API routes in `src/app/api/*` run it with the server's keys. The GitHub Pages build (`NEXT_PUBLIC_STATIC_EXPORT=1`) has no server, so it runs the same code in the browser with the keys saved in Settings.
 - `src/lib/client/enrich.ts`: runs on the phone. It checks each stop's coordinates and finds photos on Wikipedia and Wikimedia Commons, orders the stops, gets real walking and driving routes from OpenStreetMap (OSRM), then fills in stop guides, the welcome audio and restaurant picks in the background.
 - `src/lib/route.ts`: finds the shortest visiting order (exact for up to 9 stops, heuristic above that), applies the 1 km walking rule, and builds the schedule, placing breakfast, lunch, coffee and dinner by time of day.
 - `src/lib/audio/*`: generated background music (Web Audio), mixed with the narration into one track that plays in a normal audio player.
@@ -51,6 +67,7 @@ Tip: in a tour's **•••** menu, choose **Download audio for offline** befor
 ```bash
 npm test          # route/schedule unit tests
 npm run typecheck
+npm run build:pages   # static GitHub Pages build into out/ (set NEXT_PUBLIC_BASE_PATH=/<repo> to test a sub-path)
 npm run mock      # fake Claude API on :4010, then:
 ANTHROPIC_API_KEY=test ANTHROPIC_BASE_URL=http://127.0.0.1:4010 npm run dev
 ```

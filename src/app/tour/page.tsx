@@ -1,8 +1,8 @@
 "use client";
 import { CalendarDays, ChevronLeft, Compass, Download, Loader2, MoreHorizontal, RefreshCw, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { Overview } from "@/components/tour/Overview";
 import { Today } from "@/components/tour/Today";
 import { prefetchVoices } from "@/lib/audio/player";
@@ -13,7 +13,24 @@ import type { Tour } from "@/lib/types";
 type Tab = "overview" | "today";
 
 export default function TourPage() {
-  const { id } = useParams<{ id: string }>();
+  // useSearchParams needs a Suspense boundary so the page can be prerendered.
+  return (
+    <Suspense fallback={<Spinner />}>
+      <TourScreen />
+    </Suspense>
+  );
+}
+
+function Spinner() {
+  return (
+    <div className="flex min-h-dvh items-center justify-center">
+      <Loader2 className="size-8 animate-spin text-muted" />
+    </div>
+  );
+}
+
+function TourScreen() {
+  const id = useSearchParams().get("id") ?? "";
   const tour = useTour(id);
   const router = useRouter();
   const tasks = useTourTasks(id);
@@ -32,17 +49,11 @@ export default function TourPage() {
 
   const switchTab = (t: Tab) => {
     setTab(t);
-    history.replaceState(null, "", t === "today" ? "#today" : "#");
+    history.replaceState(null, "", `${location.pathname}${location.search}${t === "today" ? "#today" : ""}`);
     window.scrollTo({ top: 0 });
   };
 
-  if (tour === undefined) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-muted" />
-      </div>
-    );
-  }
+  if (tour === undefined) return <Spinner />;
   if (tour === null) {
     return (
       <div className="pt-safe flex min-h-dvh flex-col items-center justify-center gap-3 px-8 text-center">
@@ -115,7 +126,7 @@ export default function TourPage() {
 
       {tour.demo && (
         <div className="mx-4 mt-3 rounded-xl bg-accent-soft px-3 py-2 text-center text-xs text-accent">
-          Sample tour (demo mode) — add your Anthropic API key to plan real ones.
+          Sample tour (demo mode) — add an Anthropic API key to plan real ones.
         </div>
       )}
 

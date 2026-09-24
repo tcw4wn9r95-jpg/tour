@@ -4,14 +4,16 @@ import { PasscodeGate } from "@/components/PasscodeGate";
 import { ServiceWorker } from "@/components/ServiceWorker";
 import "./globals.css";
 
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
 export const metadata: Metadata = {
   title: "City Tour",
   description: "Personal city tours planned by Claude, with maps and podcast-style audio guides.",
-  manifest: "/manifest.webmanifest",
+  manifest: `${BASE}/manifest.webmanifest`,
   appleWebApp: { capable: true, title: "City Tour", statusBarStyle: "black-translucent" },
   icons: {
-    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
-    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+    icon: [{ url: `${BASE}/icons/icon-192.png`, sizes: "192x192", type: "image/png" }],
+    apple: [{ url: `${BASE}/icons/apple-touch-icon.png`, sizes: "180x180" }],
   },
   formatDetection: { telephone: false },
 };

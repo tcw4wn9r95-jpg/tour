@@ -5,6 +5,7 @@ import { Photo } from "@/components/Photo";
 import { TourMapLazy } from "@/components/TourMapLazy";
 import { formatClock, formatDistance } from "@/lib/geo";
 import { CATEGORY_LABEL, FOCUS_EMOJI, FOCUS_LABEL } from "@/lib/labels";
+import { stopHref } from "@/lib/links";
 import type { Tour } from "@/lib/types";
 import { LegRow, RouteLegend } from "./LegRow";
 
@@ -72,7 +73,7 @@ export function Overview({ tour, onStart }: { tour: Tour; onStart: () => void })
             return (
               <div key={s.id}>
                 {leg && <LegRow leg={leg} to={s} compact />}
-                <Link href={`/tour/${tour.id}/stop/${s.id}`} className="flex items-center gap-3 py-1.5 active:opacity-70">
+                <Link href={stopHref(tour.id, s.id)} className="flex items-center gap-3 py-1.5 active:opacity-70">
                   <span className={`flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${s.visited ? "bg-good" : "bg-accent"}`}>{i + 1}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{s.name}</span>
